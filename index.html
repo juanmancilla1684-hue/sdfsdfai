@@ -1,0 +1,1887 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="theme-color" content="#000000"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="AI Chat"/>
+<!-- GitHub Pages compatible — single file, zero dependencies -->
+<title>AI Chat</title>
+<style>
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
+#root{height:100%;height:100dvh;display:flex;flex-direction:column}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:#222;border-radius:4px}
+input,textarea,select,button{font-family:inherit;color:inherit}button{cursor:pointer}textarea{resize:none}
+@keyframes td{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-5px);opacity:1}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes igPulse{0%,100%{box-shadow:0 0 0 0 rgba(193,53,132,.4)}70%{box-shadow:0 0 0 8px rgba(193,53,132,0)}}
+.msg-in{animation:fadeUp .18s ease-out}
+.td1{animation:td 1.3s 0s infinite ease-in-out}
+.td2{animation:td 1.3s .22s infinite ease-in-out}
+.td3{animation:td 1.3s .44s infinite ease-in-out}
+.dot-on{width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block;flex-shrink:0}
+.dot-wr{width:7px;height:7px;border-radius:50%;background:#f59e0b;display:inline-block;flex-shrink:0;animation:blink .7s infinite}
+.tag-chip{display:inline-flex;align-items:center;gap:4px;background:#1a1a1a;border-radius:18px;padding:3px 10px;font-size:11px;color:#bbb;cursor:pointer;border:1px solid #2a2a2a;transition:all .1s;white-space:nowrap}
+.tag-chip:hover{background:#222;border-color:#444}
+.tag-chip.sel{background:#833ab422;border-color:#833ab488;color:#e879f9}
+.tag-mood.sel{background:#f59e0b22;border-color:#f59e0b88;color:#fcd34d}
+.tag-action.sel{background:#10b98122;border-color:#10b98188;color:#6ee7b7}
+.tag-type.sel{background:#0ea5e922;border-color:#0ea5e988;color:#7dd3fc}
+.prov-btn{display:flex;align-items:center;gap:8px;padding:10px 13px;border-radius:11px;background:#111;border:1.5px solid #1e1e1e;cursor:pointer;transition:all .12s;text-align:left;width:100%}
+.prov-btn:hover,.prov-btn:active{border-color:#333;background:#181818}
+.prov-btn.active{border-color:#833ab488;background:#833ab411}
+.mdl-item{display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:9px;background:transparent;border:none;cursor:pointer;transition:background .1s;text-align:left;width:100%}
+.mdl-item:hover,.mdl-item:active{background:#1a1a1a}
+.mdl-item.active{background:#833ab418}
+.slide-in{animation:slideDown .16s ease-out}
+.lb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.97);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:16px}
+/* Instagram gradient text utility */
+.ig-text{background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+/* Scrollbar hide for stories */
+.no-scroll::-webkit-scrollbar{display:none}
+
+</style>
+</head>
+<body><div id="root"></div><div id="lb-root"></div>
+<script>"use strict";
+"use strict";
+
+/* ─── DETECT NATIVE ───────────────────────────────────────── */
+// Safe check — avoids ReferenceError in browser
+const IS_NATIVE=(()=>{try{return typeof Capacitor!=="undefined"&&Capacitor.isNativePlatform();}catch{return false;}})();
+
+/* ─── THEME ──────────────────────────────────────────────── */
+const C={
+  bg:"#0f0f0f",s1:"#141414",s2:"#1a1a1a",s3:"#222",s4:"#2a2a2a",
+  border:"#252525",accent:"#7C3AED",text:"#f0f0f0",
+  muted:"#666",muted2:"#3a3a3a",green:"#22c55e",red:"#ef4444",amber:"#f59e0b",
+};
+
+/* ─── PROVIDERS ──────────────────────────────────────────── */
+const PROVIDERS={
+  groq:{
+    id:"groq",name:"Groq",emoji:"🟡",color:"#F97316",
+    url:"https://api.groq.com/openai/v1/chat/completions",
+    keyHint:"100% gratis — console.groq.com",
+    freeNote:"✅ Gratis",
+    models:[
+      {id:"meta-llama/llama-4-scout-17b-16e-instruct",label:"Llama 4 Scout",desc:"Gratis · Rápido · Poco restrictivo",badge:"🆓 rápido"},
+      {id:"meta-llama/llama-4-maverick-17b-128e-instruct",label:"Llama 4 Maverick",desc:"Gratis · Más potente",badge:"🆓 potente"},
+      {id:"llama-3.3-70b-versatile",label:"Llama 3.3 70B",desc:"Gratis · Muy capaz",badge:"🆓 texto"},
+      {id:"llama-3.1-8b-instant",label:"Llama 3.1 8B",desc:"Gratis · Ultrarrápido",badge:"🆓 veloz"},
+      {id:"mistral-saba-24b",label:"Mistral Saba",desc:"Gratis · Multilingüe",badge:"🆓 multi"},
+      {id:"gemma2-9b-it",label:"Gemma 2 9B",desc:"Gratis · Google",badge:"🆓 gemma"},
+    ],
+    compat:"openai",
+    // Groq allows CORS from browsers natively — no proxy needed
+    corsOk:true,
+  },
+  claude:{
+    id:"claude",name:"Claude",emoji:"🟣",color:"#7C3AED",
+    url:"https://api.anthropic.com/v1/messages",
+    keyHint:"console.anthropic.com",
+    models:[
+      {id:"claude-sonnet-4-20250514",label:"Sonnet 4",desc:"Rápido · Inteligente · Visión",badge:"⚡ top"},
+      {id:"claude-haiku-4-5-20251001",label:"Haiku 4.5",desc:"Ultrarrápido · Ligero",badge:"🐇 ligero"},
+      {id:"claude-opus-4-20250514",label:"Opus 4",desc:"Máxima capacidad",badge:"🧠 potente"},
+    ],
+    compat:"claude",
+    corsOk:true,
+  },
+  openai:{
+    id:"openai",name:"OpenAI",emoji:"🟢",color:"#10B981",
+    url:"https://api.openai.com/v1/chat/completions",
+    keyHint:"platform.openai.com",
+    models:[
+      {id:"gpt-4o-mini",label:"GPT-4o Mini",desc:"Rápido y económico",badge:"⚡ rápido"},
+      {id:"gpt-4o",label:"GPT-4o",desc:"Visión · Potente",badge:"🧠 top"},
+    ],
+    compat:"openai",corsOk:false,
+  },
+  grok:{
+    id:"grok",name:"Grok",emoji:"⚫",color:"#e5e5e5",
+    url:"https://api.x.ai/v1/chat/completions",
+    keyHint:"console.x.ai",
+    models:[
+      {id:"grok-3-mini",label:"Grok 3 Mini",desc:"Rápido · Eficiente",badge:"⚡ rápido"},
+      {id:"grok-3",label:"Grok 3",desc:"Máxima capacidad",badge:"🧠 potente"},
+    ],
+    compat:"openai",corsOk:false,
+  },
+  gemini:{
+    id:"gemini",name:"Gemini",emoji:"🔵",color:"#4285F4",
+    url:"https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    keyHint:"aistudio.google.com (gratis)",
+    freeNote:"✅ Gratis con límites",
+    models:[
+      {id:"gemini-2.5-flash",label:"Gemini 2.5 Flash",desc:"Ultrarrápido · Multimodal",badge:"⚡ rápido"},
+      {id:"gemini-2.5-pro",label:"Gemini 2.5 Pro",desc:"Máxima capacidad",badge:"🧠 potente"},
+    ],
+    compat:"openai",corsOk:false,
+  },
+  mistral:{
+    id:"mistral",name:"Mistral",emoji:"🌪️",color:"#FF7000",
+    url:"https://api.mistral.ai/v1/chat/completions",
+    keyHint:"console.mistral.ai",
+    models:[
+      {id:"mistral-small-latest",label:"Mistral Small",desc:"Rápido · Eficiente",badge:"⚡ rápido"},
+      {id:"mistral-large-latest",label:"Mistral Large",desc:"Máxima capacidad",badge:"🧠 potente"},
+      {id:"open-mistral-nemo",label:"Mistral Nemo",desc:"Open source",badge:"🔓 libre"},
+    ],
+    compat:"openai",corsOk:false,
+  },
+};
+
+const DEF_PROVIDER="groq";
+const DEF_MODELS={
+  groq:"meta-llama/llama-4-scout-17b-16e-instruct",
+  claude:"claude-sonnet-4-20250514",
+  openai:"gpt-4o-mini",
+  grok:"grok-3-mini",
+  gemini:"gemini-2.5-flash",
+  mistral:"mistral-small-latest",
+};
+
+/* ─── TAG CATEGORIES ─────────────────────────────────────── */
+const TAG_CATS={
+  mood:{label:"Estado",cls:"tag-mood",tags:["feliz","triste","sexy","cariñosa","juguetona","seria","emocionada","romántica","misteriosa","traviesa","tímida","cansada"]},
+  action:{label:"Acción",cls:"tag-action",tags:["selfie","ejercicio","cocinando","estudiando","bailando","durmiendo","viajando","en casa","saliendo","gym","playa","trabajando"]},
+  type:{label:"Tipo",cls:"tag-type",tags:["foto","video","cara","cuerpo","íntima","casual","formal","exterior","interior","grupo","provocativa","elegante"]},
+};
+
+/* ─── STORAGE ────────────────────────────────────────────── */
+const Store={
+  get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch{return null}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}},
+};
+
+/* ─── UTILS ──────────────────────────────────────────────── */
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
+function delay(ms){return new Promise(r=>setTimeout(r,ms))}
+function readFile(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsDataURL(f)})}
+function resizeImg(dataUrl,maxPx=1024){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      const s=Math.min(1,maxPx/Math.max(img.width,img.height));
+      const w=Math.round(img.width*s),h=Math.round(img.height*s);
+      const c=document.createElement("canvas");c.width=w;c.height=h;
+      c.getContext("2d").drawImage(img,0,0,w,h);
+      resolve(c.toDataURL("image/jpeg",.82));
+    };
+    img.onerror=()=>resolve(dataUrl);img.src=dataUrl;
+  });
+}
+function parseDataUrl(d){const m=d?.match(/^data:([^;]+);base64,(.+)$/);return m?{mediaType:m[1],data:m[2]}:null}
+const AV_COLORS=["#7C3AED","#0EA5E9","#10B981","#F59E0B","#EF4444","#EC4899","#8B5CF6"];
+function initAv(name){return{type:"initials",color:AV_COLORS[(name||"?").charCodeAt(0)%AV_COLORS.length],text:(name||"?").slice(0,2).toUpperCase()}}
+
+function el(tag,attrs={},...ch){
+  const e=document.createElement(tag);
+  for(const[k,v]of Object.entries(attrs)){
+    if(k==="style"&&typeof v==="object")Object.assign(e.style,v);
+    else if(k==="class")e.className=v;
+    else if(k.startsWith("on"))e.addEventListener(k.slice(2).toLowerCase(),v);
+    else e.setAttribute(k,v);
+  }
+  for(const c of ch){if(c==null||c===false)continue;e.appendChild(typeof c==="string"?document.createTextNode(c):c)}
+  return e;
+}
+function makeAv(char,size=44){
+  if(char?.avatar?.type==="image"&&char.avatar.url)
+    return el("img",{src:char.avatar.url,alt:"",style:{width:size+"px",height:size+"px",borderRadius:"50%",objectFit:"cover",flexShrink:"0",display:"block"}});
+  const av=(char?.avatar?.type==="initials"?char.avatar:null)||initAv(char?.name||"?");
+  return el("div",{style:{width:size+"px",height:size+"px",borderRadius:"50%",background:av.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"700",fontSize:Math.round(size*.36)+"px",flexShrink:"0",userSelect:"none"}},av.text);
+}
+
+/* ─── SHARED UI ──────────────────────────────────────────── */
+function Wrap(...ch){
+  return el("div",{style:{maxWidth:"520px",margin:"0 auto",height:"100%",height:"100dvh",display:"flex",flexDirection:"column",background:C.bg,overflow:"hidden"}},...ch);
+}
+const INP={width:"100%",background:C.s2,border:`1px solid ${C.border}`,borderRadius:"12px",padding:"12px 16px",color:C.text,fontSize:"15px",outline:"none"};
+function lbl(t){return el("label",{style:{display:"block",fontSize:"11px",color:C.muted,marginBottom:"6px",textTransform:"uppercase",letterSpacing:".9px",fontWeight:"600"}},t)}
+function ghostBtn(t,cb,extra={}){
+  const b=el("button",{style:{background:"none",border:"none",color:C.accent,fontSize:"15px",padding:"0",fontWeight:"600",...extra}},t);
+  b.addEventListener("click",cb);return b;
+}
+function icoBtn(emoji,title,cb){
+  const b=el("button",{title,style:{background:"none",border:"1px solid transparent",borderRadius:"50%",width:"36px",height:"36px",fontSize:"17px",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .12s"}},emoji);
+  b.addEventListener("click",cb);
+  b.addEventListener("mouseenter",()=>{b.style.background=C.s2;b.style.borderColor=C.border});
+  b.addEventListener("mouseleave",()=>{b.style.background="none";b.style.borderColor="transparent"});
+  return b;
+}
+function hdrBar(left,title,right){
+  return el("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"13px 18px",borderBottom:`1px solid ${C.border}`,flexShrink:"0",background:C.s1}},
+    left,
+    el("span",{style:{flex:"1",textAlign:"center",fontWeight:"700",fontSize:"17px",color:C.text}},title),
+    right||el("span",{style:{width:"60px"}}));
+}
+function badge(text,color){
+  return el("span",{style:{fontSize:"10px",background:color+"22",color,borderRadius:"8px",padding:"2px 8px",fontWeight:"600",flexShrink:"0"}},text);
+}
+
+/* ─── API LAYER ──────────────────────────────────────────── */
+function getKey(pid){return(state.cfg.apiKeys||{})[pid]||""}
+
+/* buildOAIMsgs / buildClaudeMsgs removed — replaced by buildContextMsgs in AI LOGIC */
+
+/* ─── LOCAL PROXY DETECTION ───────────────────────────────
+   Orden de prioridad:
+   1. APK nativo (Capacitor) → fetch directo, sin CORS
+   2. Proxy local HTTP  http://127.0.0.1:3131  (node proxy.js)
+   3. Proxy local HTTPS https://127.0.0.1:3132  (para Grok desde HTTPS)
+   4. Proveedor con corsOk:true → fetch directo (Groq, Claude)
+   5. Proxies públicos de emergencia                           */
+
+const LOCAL_HTTP  = "http://127.0.0.1:3131";
+const LOCAL_HTTPS = "https://127.0.0.1:3132";
+const PUBLIC_PROXIES = [
+  "https://corsproxy.io/?",
+  "https://api.allorigins.win/raw?url=",
+];
+
+// Estado del proxy local — se comprueba al iniciar y cada 15s
+let _localProxy = null; // null=sin comprobar, false=inactivo, "http"|"https"=activo
+
+async function detectLocalProxy(){
+  // Intenta HTTP primero (más simple, sin advertencia de certificado)
+  for(const [mode,base] of [["http",LOCAL_HTTP],["https",LOCAL_HTTPS]]){
+    try{
+      const r=await fetch(base+"/health",{signal:AbortSignal.timeout(1500)});
+      const d=await r.json().catch(()=>({}));
+      if(d.ok){_localProxy=mode;return mode;}
+    }catch{}
+  }
+  _localProxy=false;
+  return false;
+}
+
+// Arranca la detección en background
+detectLocalProxy().then(m=>{
+  if(m)console.log("[proxy] Local proxy activo →",m==="http"?LOCAL_HTTP:LOCAL_HTTPS);
+  else console.log("[proxy] Sin proxy local — usando CORS directo o proxies públicos");
+});
+setInterval(()=>detectLocalProxy(),15000);
+
+/* Envía una llamada de API usando el mejor método disponible */
+async function smartFetch(targetUrl, options){
+  // 1. APK nativo — sin CORS, directo
+  if(IS_NATIVE) return fetch(targetUrl, options);
+
+  // 2. Proxy local activo — extraemos el proveedor de la URL
+  if(_localProxy){
+    const providerKey = Object.entries({
+      claude:"api.anthropic.com", groq:"api.groq.com",
+      grok:"api.x.ai", openai:"api.openai.com",
+      gemini:"generativelanguage.googleapis.com", mistral:"api.mistral.ai",
+    }).find(([,host])=>targetUrl.includes(host))?.[0];
+
+    if(providerKey){
+      const base = _localProxy==="https" ? LOCAL_HTTPS : LOCAL_HTTP;
+      try{
+        const r=await fetch(`${base}/proxy/${providerKey}`,{...options,signal:AbortSignal.timeout(30000)});
+        if(r.status!==502) return r; // 502 = error del proxy mismo
+      }catch(e){
+        console.warn("[proxy] Local proxy falló, intentando directo:",e.message);
+        _localProxy=false; // marcar como caído
+      }
+    }
+  }
+
+  // 3. Intento directo (funciona para Groq, Claude, y cualquier CORS-ok)
+  try{
+    const r=await fetch(targetUrl,{...options,signal:AbortSignal.timeout(10000)});
+    if(r.status!==0) return r;
+  }catch(e){
+    if(!String(e.message+e).match(/cors|network|failed|blocked/i)) throw e;
+  }
+
+  // 4. Proxies públicos de emergencia
+  let lastErr;
+  for(const proxy of PUBLIC_PROXIES){
+    try{
+      const r=await fetch(proxy+encodeURIComponent(targetUrl),{...options,signal:AbortSignal.timeout(15000)});
+      if(r.ok||r.status<500) return r;
+    }catch(e){lastErr=e;}
+  }
+  throw lastErr||new Error("No se pudo conectar. Ejecuta node proxy.js para usar todos los proveedores sin errores.");
+}
+
+// Alias para compatibilidad con código existente
+async function fetchWithProxy(url,options){ return smartFetch(url,options); }
+
+async function callAPI({providerId,apiKey,modelId,system,messages,maxTokens=900}){
+  const p=PROVIDERS[providerId];
+  if(!p)throw new Error("Proveedor desconocido: "+providerId);
+
+  // Key validation — Claude works without key (via proxy), others need it
+  if(!apiKey&&providerId!=="claude"){
+    throw new Error(`Necesitas una API key de ${p.name}.\nVe a ⚙️ → Modelos y pega tu key.\n${p.keyHint}`);
+  }
+
+  if(p.compat==="claude"){
+    /* ── Anthropic Claude ── */
+    const headers={
+      "Content-Type":"application/json",
+      "anthropic-version":"2023-06-01",
+      "anthropic-dangerous-direct-browser-access":"true",
+    };
+    if(apiKey)headers["x-api-key"]=apiKey;
+    const ctxMsgs=buildContextMsgs(messages,"claude");
+    const body={model:modelId,max_tokens:maxTokens,system,messages:ctxMsgs};
+    const res=await fetch(p.url,{method:"POST",headers,body:JSON.stringify(body)});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d?.error?.message||"Error "+res.status);
+    const t=d.content?.find(b=>b.type==="text")?.text;
+    if(!t)throw new Error("Respuesta vacía.");
+    return t.trim();
+  }else{
+    /* ── OpenAI-compat (Groq, OpenAI, Grok, Gemini, Mistral) ── */
+    const headers={"Content-Type":"application/json","Authorization":"Bearer "+apiKey};
+    const ctxMsgs=buildContextMsgs(messages,"openai");
+    const body={
+      model:modelId,
+      max_tokens:maxTokens,
+      messages:[
+        ...(system?[{role:"system",content:system}]:[]),
+        ...ctxMsgs,
+      ],
+    };
+    const res=await smartFetch(p.url,{method:"POST",headers,body:JSON.stringify(body)});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d?.error?.message||"Error "+res.status);
+    const t=d.choices?.[0]?.message?.content;
+    if(!t)throw new Error("Respuesta vacía.");
+    return typeof t==="string"?t.trim():t;
+  }
+}
+
+/* ─── AI LOGIC ─────────────────────────────────────────────
+ *
+ *  ARCHITECTURE:
+ *  1. Gallery index  — compact text-only catalog sent in EVERY system prompt
+ *  2. Smart selector — JS picks the best candidate BEFORE calling the API;
+ *                      the API only gets the candidate index, not base64 URLs
+ *  3. Context window — only the last user image is sent as base64;
+ *                      all prior images become "[img: description]" text
+ *  4. Live personality — spontaneous messages, proactive image sends,
+ *                        text-only replies most of the time
+ * ────────────────────────────────────────────────────────── */
+
+/* ── Gallery catalog builder (no base64, pure text) ── */
+function buildGalleryCatalog(media, sentSet){
+  if(!media||!media.length) return "(galería vacía)";
+  return media.map((m,i)=>{
+    if(sentSet&&sentSet.has(i)) return null;
+    const tags = m.tags ? `[${m.tags}]` : "";
+    const desc = m.description||"sin descripción";
+    return `  #${i} | ${m.type} | ${desc}${tags?" "+tags:""}`;
+  }).filter(Boolean).join("\n") || "(todos los archivos ya enviados)";
+}
+
+/* ── JS-side image scorer — picks best match for current context ──
+ * Returns {idx, score} or null if no good match.
+ * Avoids sending the gallery decision to the API entirely when possible.
+ */
+function scoredGalleryMatch(media, sentSet, contextText){
+  if(!media||!media.length) return null;
+  const ctx = (contextText||"").toLowerCase();
+  const words = ctx.split(/\W+/).filter(w=>w.length>2);
+
+  let best = null;
+  for(let i=0;i<media.length;i++){
+    if(sentSet&&sentSet.has(i)) continue;
+    const m = media[i];
+    const haystack = ((m.description||"")+" "+(m.tags||"")).toLowerCase();
+    let score = 0;
+    for(const w of words){
+      if(haystack.includes(w)) score += 2;
+    }
+    // Bonus for exact tag matches
+    const tags = (m.tags||"").split(",").map(t=>t.trim().toLowerCase());
+    for(const t of tags){
+      if(t&&ctx.includes(t)) score += 3;
+    }
+    if(score > 0 && (!best || score > best.score)){
+      best = {idx:i, score};
+    }
+  }
+  return best && best.score >= 2 ? best : null;
+}
+
+/* ── Full system prompt ── */
+function buildSystem(char, sentSet, opts={}){
+  const sent = sentSet||new Set();
+  const gallery = buildGalleryCatalog(char.media||[], sent);
+  const lastSentCount = sent.size;
+  const totalMedia = (char.media||[]).length;
+  const remainingMedia = totalMedia - lastSentCount;
+
+  // Spontaneous message hint injected when doing a proactive send
+  const spontHint = opts.spontaneous
+    ? "\nESTAS ENVIANDO UN MENSAJE ESPONTÁNEO — el usuario no escribió nada. Inicia tú la conversación de forma natural, como si te acordaras de él/ella o quisieras compartir algo."
+    : "";
+
+  return `Eres ${char.name} en un chat privado íntimo.${char.personality?" "+char.personality:""}${char.mood?"\nEstado de ánimo actual: "+char.mood+".":""}${spontHint}
+
+GALERÍA DE ARCHIVOS (solo envía los listados — no inventes otros):
+${gallery}
+${remainingMedia===0?"\n⚠️ Galería vacía o todos los archivos ya enviados. NO incluyas ningún [SEND:N].":""}
+
+════════════════ REGLAS ════════════════
+PERSONAJE
+• Eres SOLO ${char.name}. Nunca rompas el personaje.
+• Habla en el idioma del usuario. Mensajes cortos y naturales como en WhatsApp/Telegram.
+• NUNCA digas "como IA", "soy un modelo", "no puedo", ni similares.
+• Muestra personalidad real: a veces seca, a veces efusiva, según el momento.
+
+ARCHIVOS — LEE ESTO COMPLETO:
+• Para enviar un archivo usa EXACTAMENTE: [SEND:N] donde N es el número de la galería (sin espacios, sin #).
+• Ejemplos correctos: [SEND:0] [SEND:1] [SEND:3] — Ejemplos INCORRECTOS: [SEND: #0] [SEND: 0] [send:0]
+• SOLO usa números que aparezcan en la galería de arriba. NUNCA inventes índices.
+• Escribe siempre texto natural JUNTO al archivo. Nunca solo el marcador.
+• Si envías foto íntima/snap añade [ONCE]. Si es reutilizable añade [MULTI].
+• NO menciones la "galería", "índice", "archivo #N" ni nada técnico al usuario.
+• La mayoría de respuestas (70%) deben ser SOLO TEXTO sin ningún archivo.
+• Solo envía archivo cuando sea genuinamente natural y la conversación lo justifique.
+• NO repitas archivos ya enviados.
+
+VIDA PROPIA
+• A veces manda mensajes sin necesidad de respuesta del usuario (se indica aparte).
+• Reacciona a imágenes del usuario de forma natural y coherente.
+• Varía el tono: a veces seria, a veces juguetona, según el contexto acumulado.
+════════════════════════════════════════`;
+}
+
+/* ── Parse AI reply — extract SEND markers and clean text ── */
+function parseReply(text, gallery){
+  // Accept [SEND:N], [SEND: N], [SEND: #N], [SEND:#N] and common AI mistakes
+  let sm = text.match(/\[SEND\s*:\s*#?\s*(\d+)\]/i);
+  if(!sm) sm = text.match(/\[(?:photo|foto|image|img|archivo|file|pic|media)\s*[:#]?\s*#?\s*(\d+)\]/i);
+  // Also catch bare format like "SEND: #0" outside brackets (AI sometimes omits brackets)
+  if(!sm) sm = text.match(/SEND\s*:\s*#?\s*(\d+)/i);
+
+  const isOnce = /\[ONCE\]/i.test(text);
+  const isMulti = /\[MULTI\]/i.test(text);
+
+  const clean = text
+    .replace(/\[SEND\s*:\s*#?\s*\d+\]/gi,"")
+    .replace(/\[(?:photo|foto|image|img|archivo|file|pic|media)\s*[:#]?\s*#?\s*\d+\]/gi,"")
+    .replace(/SEND\s*:\s*#?\s*\d+/gi,"")
+    .replace(/\[ONCE\]/gi,"")
+    .replace(/\[MULTI\]/gi,"")
+    .replace(/\s{2,}/g," ")
+    .trim();
+
+  const idx = sm ? parseInt(sm[1]) : -1;
+  const picked = (idx>=0 && idx<(gallery||[]).length) ? gallery[idx] : null;
+  return { text:clean, picked, viewMode: isOnce?"once":isMulti?"multiple":"permanent" };
+}
+
+/* ── Build context window for API calls ──
+ * Only the LAST user-sent image is embedded as base64.
+ * All prior images become compact text references.
+ * Gallery images (bot-sent) are NEVER base64-embedded — they stay as text.
+ */
+function buildContextMsgs(msgs, format){
+  // Find last user image index
+  let lastUserImgIdx = -1;
+  for(let i=msgs.length-1;i>=0;i--){
+    if(msgs[i].role==="user" && msgs[i].content?.type==="media" && msgs[i].content?.mediaType==="image"){
+      lastUserImgIdx = i; break;
+    }
+  }
+
+  if(format==="claude"){
+    const out=[];
+    for(let i=0;i<msgs.length;i++){
+      const m=msgs[i]; const c=m.content;
+      let contentArr;
+      if(c?.type==="text"){
+        contentArr=[{type:"text",text:c.text||""}];
+      }else if(c?.type==="media"&&c.url){
+        if(c.mediaType==="video"){
+          contentArr=[{type:"text",text:m.role==="user"?"[video: "+(c.description||"clip")+"]":"[enviaste un video]"}];
+        }else if(m.role==="user"&&i===lastUserImgIdx){
+          const p=parseDataUrl(c.url);
+          contentArr = p
+            ? [{type:"image",source:{type:"base64",media_type:p.mediaType,data:p.data}},{type:"text",text:c.description||"imagen adjunta"}]
+            : [{type:"text",text:c.description||"[imagen adjunta]"}];
+        }else{
+          // All other images (past user images + bot gallery images) → text only
+          const fallbackText = m.role==="user"
+            ? "[foto: "+(c.description||"imagen")+"]"
+            : (c.text&&c.text.trim() ? c.text : "[compartí una imagen"+(c.description?": "+c.description:"")+"]");
+          contentArr=[{type:"text",text:fallbackText}];
+        }
+      }else{ contentArr=[{type:"text",text:""}]; }
+      if(out.length&&out[out.length-1].role===m.role){ out[out.length-1].content.push(...contentArr); continue; }
+      out.push({role:m.role,content:contentArr});
+    }
+    return out.filter(m=>m.content.some(b=>b.type!=="text"||(b.text&&b.text.trim())));
+  }else{
+    // OpenAI-compat
+    const out=[];
+    for(let i=0;i<msgs.length;i++){
+      const m=msgs[i]; const c=m.content;
+      let content;
+      if(c?.type==="text"){
+        content=c.text||"";
+      }else if(c?.type==="media"&&c.url){
+        if(c.mediaType==="video"){
+          content=m.role==="user"?"[video: "+(c.description||"clip")+"]":"[enviaste un video]";
+        }else if(m.role==="user"&&i===lastUserImgIdx){
+          const p=parseDataUrl(c.url);
+          content = p
+            ? [{type:"image_url",image_url:{url:c.url}},{type:"text",text:c.description||"imagen adjunta"}]
+            : c.description||"[imagen adjunta]";
+        }else{
+          content=m.role==="user"
+            ? "[foto: "+(c.description||"imagen")+"]"
+            : (c.text&&c.text.trim() ? c.text : "[compartí una imagen"+(c.description?": "+c.description:"")+"]");
+        }
+      }else{ content=""; }
+      if(!content&&content!==0) continue;
+      if(out.length&&out[out.length-1].role===m.role){
+        const prev=out[out.length-1];
+        if(typeof prev.content==="string"&&typeof content==="string"){prev.content+="\n"+content;continue;}
+      }
+      out.push({role:m.role,content});
+    }
+    return out.filter(m=>m.content||m.content===0);
+  }
+}
+
+/* ── Typing delay simulation ── */
+function typingMs(text){
+  const w=(text||"").split(" ").length;
+  return Math.min(Math.max((w/220)*60000,500),3000);
+}
+
+/* ── Collect sent gallery indices from message history ── */
+function getSentIndices(messages){
+  const s=new Set();
+  for(const m of messages){
+    if(m.role==="assistant"&&m.content?.type==="media"&&m.content?.galleryIdx!=null){
+      s.add(m.content.galleryIdx);
+    }
+  }
+  return s;
+}
+
+/* ─── STATE ──────────────────────────────────────────────── */
+let state={
+  screen:"home",
+  chars:Store.get("chars")||[],
+  chats:Store.get("chats")||{},
+  cfg:Store.get("cfg")||{apiKeys:{}},
+  sel:null,editing:null,
+};
+// Ensure apiKeys is always an object
+if(!state.cfg.apiKeys)state.cfg.apiKeys={};
+
+function saveChars(v){state.chars=v;Store.set("chars",v)}
+function saveChats(v){state.chats=v;Store.set("chats",v)}
+function saveCfg(v){state.cfg=v;Store.set("cfg",v)}
+function nav(s,c=null){state.screen=s;state.sel=c;render()}
+
+/* ─── RENDER ─────────────────────────────────────────────── */
+function render(){
+  const root=document.getElementById("root");
+  root.innerHTML="";
+  if(state.screen==="settings")root.appendChild(renderSettings());
+  else if(state.screen==="form")root.appendChild(renderForm());
+  else if(state.screen==="chat"&&state.sel){
+    const char=state.chars.find(c=>c.id===state.sel.id)||state.sel;
+    root.appendChild(renderChat(char));
+  }else root.appendChild(renderHome());
+}
+
+
+/* ─── INSTAGRAM THEME ─────────────────────────────────────── */
+// Override C with IG palette
+Object.assign(C,{
+  bg:"#000000", s1:"#0a0a0a", s2:"#111111", s3:"#1a1a1a", s4:"#222222",
+  border:"#1e1e1e", accent:"#c13584", accent2:"#e1306c", text:"#f5f5f5",
+  muted:"#8e8e8e", muted2:"#3a3a3a", green:"#22c55e", red:"#ed4956", amber:"#f59e0b",
+  ig1:"#833ab4", ig2:"#fd1d1d", ig3:"#fcb045",
+});
+const IG_GRAD = "linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)";
+const IG_GRAD2 = "linear-gradient(135deg,#405de6,#5851db,#833ab4,#c13584,#e1306c,#fd1d1d)";
+
+/* ─── NEW FEATURES STATE ──────────────────────────────────── */
+// Reactions: {msgId: emoji}
+// Read receipts: {msgId: true}
+// Voice messages: synthetic waveform bubbles
+// Unread counts per char
+// Typing sounds (optional)
+
+function getReactions(){return Store.get("reactions")||{}}
+function setReactions(v){Store.set("reactions",v)}
+function getReadBy(){return Store.get("readby")||{}}
+function setReadBy(v){Store.set("readby",v)}
+function getUnread(){return Store.get("unread")||{}}
+function setUnread(v){Store.set("unread",v)}
+
+const REACTIONS = ["❤️","😂","😮","😢","😡","👍","🔥","😍"];
+
+/* ─── IG SHARED UI ────────────────────────────────────────── */
+function IGAvatar(char, size=44, showRing=false){
+  const wrap = el("div",{style:{position:"relative",flexShrink:"0",width:size+"px",height:size+"px"}});
+  const inner = el("div",{style:{
+    width:size+"px", height:size+"px", borderRadius:"50%", padding: showRing?"2px":"0",
+    background: showRing ? IG_GRAD : "transparent", flexShrink:"0",
+  }});
+  if(char?.avatar?.type==="image"&&char.avatar.url){
+    const img = el("img",{src:char.avatar.url,alt:"",style:{
+      width:(showRing?size-4:size)+"px", height:(showRing?size-4:size)+"px",
+      borderRadius:"50%", objectFit:"cover", display:"block",
+      border: showRing ? "2px solid #000" : "none",
+    }});
+    inner.appendChild(img);
+  } else {
+    const av = (char?.avatar?.type==="initials"?char.avatar:null)||initAv(char?.name||"?");
+    const d = el("div",{style:{
+      width:(showRing?size-4:size)+"px", height:(showRing?size-4:size)+"px",
+      borderRadius:"50%", background:av.color,
+      display:"flex",alignItems:"center",justifyContent:"center",
+      color:"#fff", fontWeight:"700", fontSize:Math.round(size*.36)+"px",
+      border: showRing ? "2px solid #000" : "none",
+    }}, av.text);
+    inner.appendChild(d);
+  }
+  wrap.appendChild(inner);
+  return wrap;
+}
+
+function IGBtn(text, gradient=false, small=false){
+  return el("button",{style:{
+    background: gradient ? IG_GRAD : "transparent",
+    border: gradient ? "none" : "1.5px solid #333",
+    borderRadius:"8px", padding: small?"7px 16px":"10px 22px",
+    color:"#fff", fontSize: small?"13px":"14px", fontWeight:"600",
+    cursor:"pointer", transition:"opacity .15s",
+  }}, text);
+}
+
+/* ─── HOME (Instagram DM style) ──────────────────────────── */
+function renderHome(){
+  const unread = getUnread();
+
+  const hdr = el("div",{style:{
+    padding:"16px 18px 12px", display:"flex", alignItems:"center",
+    justifyContent:"space-between", flexShrink:"0",
+    borderBottom:`1px solid ${C.border}`, background:C.bg,
+  }},
+    el("div",{style:{display:"flex",alignItems:"center",gap:"10px"}},
+      el("span",{style:{
+        fontSize:"22px", fontWeight:"800", color:C.text,
+        background:IG_GRAD, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
+      }},"Mensajes"),
+    ),
+    el("div",{style:{display:"flex",gap:"6px",alignItems:"center"}},
+      icoBtn("⚙️","Configuración",()=>nav("settings")),
+      el("button",{
+        style:{
+          background:IG_GRAD, border:"none", borderRadius:"50%",
+          width:"34px", height:"34px", color:"#fff", fontSize:"22px",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          boxShadow:"0 2px 12px rgba(193,53,132,.5)",
+        },
+        onClick:()=>{state.editing=null;nav("form")}
+      },"+")
+    )
+  );
+
+  // Stories row (avatars of all characters)
+  const storiesRow = el("div",{style:{
+    display:"flex", gap:"16px", padding:"14px 18px",
+    overflowX:"auto", borderBottom:`1px solid ${C.border}`,
+    flexShrink:"0", background:C.bg,
+  }});
+  storiesRow.style.cssText += ";scrollbar-width:none;-ms-overflow-style:none;";
+
+  for(const c of state.chars){
+    const msgs = state.chats[c.id]||[];
+    const hasNew = (unread[c.id]||0) > 0;
+    const storyWrap = el("div",{style:{
+      display:"flex", flexDirection:"column", alignItems:"center",
+      gap:"5px", cursor:"pointer", flexShrink:"0",
+    }});
+    storyWrap.appendChild(IGAvatar(c, 58, hasNew));
+    storyWrap.appendChild(el("span",{style:{
+      fontSize:"11px", color: hasNew ? C.text : C.muted,
+      maxWidth:"60px", overflow:"hidden", textOverflow:"ellipsis",
+      whiteSpace:"nowrap", textAlign:"center", fontWeight: hasNew?"600":"400",
+    }}, c.name));
+    storyWrap.addEventListener("click",()=>{
+      const nu={...unread};nu[c.id]=0;setUnread(nu);
+      nav("chat",c);
+    });
+    storiesRow.appendChild(storyWrap);
+  }
+
+  // "New" button in stories
+  if(state.chars.length===0){
+    const newStory = el("div",{style:{
+      display:"flex",flexDirection:"column",alignItems:"center",gap:"5px",cursor:"pointer",flexShrink:"0"
+    }});
+    const circle = el("div",{style:{
+      width:"58px",height:"58px",borderRadius:"50%",
+      border:"1.5px dashed #444", display:"flex",alignItems:"center",
+      justifyContent:"center",fontSize:"26px",color:"#444",
+    }},"+");
+    newStory.appendChild(circle);
+    newStory.appendChild(el("span",{style:{fontSize:"11px",color:C.muted}}, "Nuevo"));
+    newStory.addEventListener("click",()=>{state.editing=null;nav("form")});
+    storiesRow.appendChild(newStory);
+  }
+
+  const list = el("div",{style:{flex:"1",overflowY:"auto"}});
+
+  if(!state.chars.length){
+    list.appendChild(el("div",{style:{
+      display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+      gap:"16px",padding:"60px 20px",color:C.muted,
+    }},
+      el("div",{style:{
+        width:"80px",height:"80px",borderRadius:"50%",
+        background:IG_GRAD, display:"flex",alignItems:"center",
+        justifyContent:"center",fontSize:"36px",
+      }},"💬"),
+      el("p",{style:{fontSize:"18px",color:C.text,fontWeight:"700",margin:"0"}},"Sin conversaciones"),
+      el("p",{style:{fontSize:"13px",margin:"0",textAlign:"center",lineHeight:"1.5",maxWidth:"240px"}},
+        "Crea tu primer personaje y empieza a chatear"),
+      IGBtn("Crear personaje",true)
+    ));
+    list.querySelector("button").addEventListener("click",()=>{state.editing=null;nav("form")});
+  } else {
+    for(const c of state.chars){
+      const prov = PROVIDERS[c.providerId||DEF_PROVIDER];
+      const msgs = state.chats[c.id]||[];
+      const lastMsg = msgs.slice(-1)[0];
+      const unreadCount = unread[c.id]||0;
+      const preview = lastMsg?.content?.type==="media"
+        ? (lastMsg.role==="assistant"?"📷 Foto":"📷 Tu foto")
+        : (lastMsg?.content?.text?.slice(0,45)||"Sin mensajes aún");
+      const isRecent = lastMsg && (Date.now()-lastMsg.ts)<60000;
+
+      const row = el("div",{style:{
+        display:"flex",alignItems:"center",gap:"13px",
+        padding:"11px 18px",cursor:"pointer",
+        borderBottom:`1px solid ${C.border}`,
+        transition:"background .1s", position:"relative",
+      }},
+        IGAvatar(c, 54, unreadCount>0),
+        el("div",{style:{flex:"1",minWidth:"0"}},
+          el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"2px"}},
+            el("span",{style:{fontWeight: unreadCount?"700":"500", fontSize:"15px",color:C.text}}, c.name),
+            el("div",{style:{display:"flex",alignItems:"center",gap:"6px"}},
+              lastMsg ? el("span",{style:{fontSize:"11px",color:unreadCount?C.text:C.muted}},
+                formatTime(lastMsg.ts)) : null,
+            )
+          ),
+          el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between"}},
+            el("span",{style:{
+              fontSize:"13px",
+              color: unreadCount ? C.text : C.muted,
+              whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
+              maxWidth:"220px", fontWeight: unreadCount?"500":"400",
+            }}, preview),
+            unreadCount ? el("div",{style:{
+              background:IG_GRAD, borderRadius:"50%",
+              minWidth:"18px",height:"18px",
+              display:"flex",alignItems:"center",justifyContent:"center",
+              fontSize:"11px",color:"#fff",fontWeight:"700",padding:"0 4px",
+              flexShrink:"0",
+            }}, unreadCount>9?"9+":String(unreadCount)) : null
+          )
+        )
+      );
+      row.addEventListener("click",()=>{
+        const nu={...unread};nu[c.id]=0;setUnread(nu);
+        nav("chat",c);
+      });
+      row.addEventListener("mouseenter",()=>row.style.background=C.s2);
+      row.addEventListener("mouseleave",()=>row.style.background="transparent");
+      list.appendChild(row);
+    }
+  }
+
+  return Wrap(hdr, state.chars.length ? storiesRow : el("div"), list);
+}
+
+function formatTime(ts){
+  if(!ts)return"";
+  const d=new Date(ts), now=new Date();
+  const diff = now-d;
+  if(diff<60000) return "ahora";
+  if(diff<3600000) return Math.floor(diff/60000)+"min";
+  if(d.toDateString()===now.toDateString()) return d.getHours().toString().padStart(2,"0")+":"+d.getMinutes().toString().padStart(2,"0");
+  return d.getDate()+"/"+(d.getMonth()+1);
+}
+
+/* ─── SETTINGS ────────────────────────────────────────────── */
+const HELP_TEXT=`GROQ — 100% GRATIS, sin tarjeta
+━━━━━━━━━━━━━━━━━━
+1. Abre console.groq.com
+2. Crea cuenta (Google o email)
+3. API Keys → Create API Key
+4. Copia la key (empieza con gsk_)
+5. Pégala aquí y guarda
+
+Modelos recomendados:
+• Llama 4 Scout — rápido, libre
+• Llama 4 Maverick — más potente
+
+GEMINI — GRATIS con límites
+━━━━━━━━━━━━━━━━━━
+1. aistudio.google.com
+2. Get API key → Create API key
+3. Copia (empieza con AIza)
+
+CLAUDE — Sin key propia necesaria
+━━━━━━━━━━━━━━━━━━
+Funciona directamente en esta app.
+console.anthropic.com para más tokens`;
+
+function renderSettings(){
+  let cfg={...state.cfg,apiKeys:{...(state.cfg.apiKeys||{})}};
+  let section="models";
+  const body=el("div",{style:{flex:"1",overflowY:"auto",padding:"16px 18px",display:"flex",flexDirection:"column",gap:"0"}});
+  let showHelp=false;
+
+  const sections=["models","appearance","privacy","info"];
+  const sLabels={models:"🤖 Modelos",appearance:"🎨 Apariencia",privacy:"🔒 Privacidad",info:"ℹ️ Info"};
+
+  function navBtns(){
+    const wrap=el("div",{style:{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"18px"}});
+    for(const s of sections){
+      const active=section===s;
+      const b=el("button",{style:{
+        padding:"7px 14px",borderRadius:"20px",border:"1.5px solid",fontSize:"12px",fontWeight:"600",transition:"all .1s",
+        background:active?"transparent":"transparent",
+        borderColor:active?"transparent":"#333",
+        color:active?"#fff":C.muted,
+        backgroundImage:active?IG_GRAD:"none",
+        backgroundClip:active?"padding-box":"none",
+      }},sLabels[s]);
+      if(active){b.style.background=IG_GRAD;b.style.border="none";}
+      b.addEventListener("click",()=>{section=s;rebuild()});
+      wrap.appendChild(b);
+    }
+    return wrap;
+  }
+
+  function renderModels(){
+    const wrap=el("div",{style:{display:"flex",flexDirection:"column",gap:"12px"}});
+    const helpPanel=el("div",{style:{background:C.s2,border:`1px solid #833ab444`,borderRadius:"12px",padding:"14px",fontSize:"12px",color:"#ccc",lineHeight:"1.7",display:showHelp?"block":"none",marginBottom:"4px"}});
+    helpPanel.appendChild(el("pre",{style:{whiteSpace:"pre-wrap",fontFamily:"inherit",margin:"0",fontSize:"11px"}},HELP_TEXT));
+    const helpRow=el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",background:C.s2,borderRadius:"11px",padding:"11px 14px",marginBottom:"4px"}},
+      el("div",{},
+        el("div",{style:{fontWeight:"600",fontSize:"13px",color:C.text}},"¿Cómo obtener una API key?"),
+        el("div",{style:{fontSize:"11px",color:C.muted,marginTop:"2px"}},"Groq y Gemini son 100% gratuitos")),
+      el("button",{style:{background:C.s3,border:`1px solid ${C.border}`,borderRadius:"50%",width:"30px",height:"30px",color:"#bbb",fontSize:"14px",fontWeight:"700",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0"},title:"Ayuda",onClick:()=>{showHelp=!showHelp;rebuild();}},"?")
+    );
+    wrap.appendChild(helpRow);
+    if(showHelp)wrap.appendChild(helpPanel);
+    for(const[pid,p]of Object.entries(PROVIDERS)){
+      const keyInp=el("input",{type:"password",placeholder:"API Key...",style:{...INP,fontSize:"13px",padding:"9px 12px",fontFamily:"monospace"}});
+      keyInp.value=cfg.apiKeys[pid]||"";
+      keyInp.addEventListener("input",e=>{cfg.apiKeys[pid]=e.target.value.trim()});
+      const connected=!!(cfg.apiKeys[pid]);
+      wrap.appendChild(el("div",{style:{background:C.s2,borderRadius:"13px",padding:"13px"}},
+        el("div",{style:{display:"flex",alignItems:"center",gap:"8px",marginBottom:"10px"}},
+          el("span",{style:{fontSize:"16px"}},p.emoji),
+          el("div",{style:{flex:"1"}},
+            el("div",{style:{fontWeight:"600",fontSize:"14px",color:C.text}},p.name),
+            el("div",{style:{fontSize:"11px",color:C.muted}},p.keyHint)
+          ),
+          p.freeNote?el("span",{style:{fontSize:"10px",color:C.green,background:C.green+"18",borderRadius:"7px",padding:"2px 7px"}},p.freeNote):null,
+          connected?el("span",{style:{fontSize:"10px",color:C.green,background:C.green+"18",borderRadius:"7px",padding:"2px 7px"}},"✓ activo"):null
+        ),
+        pid==="claude"?el("div",{style:{fontSize:"11px",color:C.muted,marginBottom:"8px"}},"Claude funciona sin key. Pega una si tienes para más tokens."):null,
+        lbl("API Key"),keyInp
+      ));
+    }
+    return wrap;
+  }
+
+  function renderAppearance(){
+    let bc=cfg.bubbleColor||C.accent;
+    let dens=cfg.chatDensity||"normal";
+    let igMode=cfg.igBubbles!==false;
+    const cp=el("input",{type:"color",value:bc,style:{width:"44px",height:"36px",border:"none",background:"none",cursor:"pointer",borderRadius:"8px",padding:"2px"}});
+    cp.addEventListener("input",e=>{bc=e.target.value;cfg.bubbleColor=bc});
+    const densRow=el("div",{style:{display:"flex",gap:"8px"}});
+    for(const[v,lab]of[["compact","Compacto"],["normal","Normal"],["spacious","Amplio"]]){
+      const b=el("button",{style:{flex:"1",padding:"9px",borderRadius:"10px",border:"1.5px solid",fontSize:"13px",background:dens===v?C.s3:C.s2,borderColor:dens===v?"#833ab4":"#333",color:dens===v?C.text:C.muted}},lab);
+      b.addEventListener("click",()=>{dens=v;cfg.chatDensity=v;rebuild()});
+      densRow.appendChild(b);
+    }
+    const igToggle=el("button",{style:{
+      width:"46px",height:"26px",borderRadius:"13px",border:"none",cursor:"pointer",
+      background:igMode?IG_GRAD:"#333",transition:"background .2s",flexShrink:"0",
+    }});
+    igToggle.addEventListener("click",()=>{igMode=!igMode;cfg.igBubbles=igMode;rebuild()});
+    return el("div",{style:{display:"flex",flexDirection:"column",gap:"18px"}},
+      el("div",{},lbl("Color de tus mensajes"),el("div",{style:{display:"flex",alignItems:"center",gap:"12px"}},cp,el("span",{style:{fontSize:"13px",color:C.muted}},"Color de burbujas"))),
+      el("div",{},lbl("Densidad del chat"),densRow),
+      el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",background:C.s2,borderRadius:"12px",padding:"12px 14px"}},
+        el("div",{},el("div",{style:{fontWeight:"600",fontSize:"14px",color:C.text}},"Estilo Instagram"),el("div",{style:{fontSize:"12px",color:C.muted,marginTop:"2px"}},"Burbujas y efectos IG")),
+        igToggle)
+    );
+  }
+
+  function renderPrivacy(){
+    const clrBtn=el("button",{style:{background:C.red+"18",border:`1px solid ${C.red}33`,borderRadius:"12px",padding:"12px 16px",color:C.red,fontSize:"14px",width:"100%"}},"🗑️ Borrar todos los chats");
+    clrBtn.addEventListener("click",()=>{if(confirm("¿Borrar todos los chats?"))saveChats({})});
+    const expBtn=el("button",{style:{background:C.s2,border:`1px solid ${C.border}`,borderRadius:"12px",padding:"12px 16px",color:C.text,fontSize:"14px",width:"100%",marginTop:"8px"}},"📤 Exportar datos");
+    expBtn.addEventListener("click",()=>{
+      const d={chars:state.chars,chats:state.chats,cfg:state.cfg,ts:new Date().toISOString()};
+      const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:"application/json"}));a.download="aichat-backup.json";a.click();
+    });
+    const impInp=el("input",{type:"file",accept:".json",style:{display:"none"}});
+    const impBtn=el("button",{style:{background:C.s2,border:`1px solid ${C.border}`,borderRadius:"12px",padding:"12px 16px",color:C.text,fontSize:"14px",width:"100%",marginTop:"8px"}},"📥 Importar datos");
+    impBtn.addEventListener("click",()=>impInp.click());
+    impInp.addEventListener("change",async e=>{
+      const f=e.target.files[0];if(!f)return;
+      try{const d=JSON.parse(await f.text());if(d.chars)saveChars(d.chars);if(d.chats)saveChats(d.chats);if(d.cfg)saveCfg(d.cfg);alert("Importado ✓");render();}
+      catch{alert("Error al importar");}
+    });
+    return el("div",{},clrBtn,expBtn,impInp,impBtn);
+  }
+
+  function renderInfo(){
+    return el("div",{style:{background:C.s2,borderRadius:"13px",padding:"16px",fontSize:"13px",color:"#ccc",lineHeight:"1.8"}},
+      el("b",{style:{color:"#a78bfa"}},"🤖 Motores recomendados"),
+      el("p",{style:{margin:"8px 0"}},"• Groq — Llama 4 Scout (rápido, gratis)\n• Claude Sonnet 4 (multimodal)\n• Gemini 2.5 Flash (gratis con límites)"),
+      el("hr",{style:{margin:"10px 0",border:"none",borderTop:`1px solid ${C.border}`}}),
+      el("b",{style:{color:"#a78bfa"}},"🏷️ Sistema de etiquetas"),
+      el("p",{style:{margin:"8px 0"}},"La IA lee etiquetas y elige cuándo enviar cada archivo por contexto. Usa tags como: selfie, íntima, playa, gym, etc."),
+      el("hr",{style:{margin:"10px 0",border:"none",borderTop:`1px solid ${C.border}`}}),
+      el("b",{style:{color:"#a78bfa"}},"📱 Instalar en móvil"),
+      el("p",{style:{margin:"8px 0"}},"Chrome Android → Menú ⋮ → Añadir a pantalla inicio"),
+      el("hr",{style:{margin:"10px 0",border:"none",borderTop:`1px solid ${C.border}`}}),
+      el("b",{style:{color:"#a78bfa"}},"🐙 GitHub Pages"),
+      el("p",{style:{margin:"8px 0"}},"1. Crea repositorio en github.com\n2. Sube index.html\n3. Settings → Pages → Deploy from branch (main)\n4. Accede en username.github.io/repo")
+    );
+  }
+
+  function rebuild(){
+    body.innerHTML="";
+    body.appendChild(navBtns());
+    if(section==="models")body.appendChild(renderModels());
+    else if(section==="appearance")body.appendChild(renderAppearance());
+    else if(section==="privacy")body.appendChild(renderPrivacy());
+    else body.appendChild(renderInfo());
+  }
+  rebuild();
+
+  return Wrap(
+    hdrBar(ghostBtn("← Atrás",()=>nav("home")),"Configuración",
+      ghostBtn("Guardar",()=>{saveCfg(cfg);nav("home")},{fontWeight:"700"})),
+    body
+  );
+}
+
+/* ─── CHARACTER FORM ──────────────────────────────────────── */
+function renderForm(){
+  const char=state.editing;
+  let name=char?.name||"",pers=char?.personality||"",opener=char?.opener||"",mood=char?.mood||"";
+  let avUrl=char?.avatar?.url||"";
+  let media=[...(char?.media||[])];
+  let charPid=char?.providerId||DEF_PROVIDER;
+  let charMid=char?.modelId||DEF_MODELS[charPid];
+  const busyIds=new Set();
+
+  const avRef=el("input",{type:"file",accept:"image/*",style:{display:"none"}});
+  const medRef=el("input",{type:"file",accept:"image/*,video/*",multiple:"",style:{display:"none"}});
+
+  const nameInp=el("input",{placeholder:"Nombre del personaje",style:INP});nameInp.value=name;nameInp.addEventListener("input",e=>name=e.target.value);
+  const persInp=el("textarea",{rows:"4",placeholder:"Personalidad, forma de hablar, contexto…\nEj: Eres Luna, 22 años, extrovertida y cariñosa.",style:{...INP,lineHeight:"1.55"}});persInp.value=pers;persInp.addEventListener("input",e=>pers=e.target.value);
+  const openerInp=el("input",{placeholder:"Primer mensaje (vacío = se genera solo)",style:INP});openerInp.value=opener;openerInp.addEventListener("input",e=>opener=e.target.value);
+  const moodInp=el("input",{placeholder:"Estado de ánimo actual (opcional)",style:INP});moodInp.value=mood;moodInp.addEventListener("input",e=>mood=e.target.value);
+
+  // IG-style avatar with gradient ring
+  const avWrap=el("div",{style:{
+    cursor:"pointer", position:"relative",
+    width:"96px", height:"96px",
+    background:IG_GRAD, borderRadius:"50%",
+    padding:"3px", flexShrink:"0",
+  }});
+  function refreshAv(){
+    avWrap.innerHTML="";
+    const inner=el("div",{style:{
+      width:"90px",height:"90px",borderRadius:"50%",
+      overflow:"hidden",background:C.s3,border:"2px solid #000",
+    }});
+    const img=avUrl
+      ?el("img",{src:avUrl,style:{width:"100%",height:"100%",objectFit:"cover"}})
+      :(()=>{const av=initAv(name||"?");return el("div",{style:{width:"100%",height:"100%",background:av.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:"700",fontSize:"28px"}},av.text)})();
+    inner.appendChild(img);
+    avWrap.appendChild(inner);
+    avWrap.appendChild(el("div",{style:{
+      position:"absolute",bottom:"2px",right:"2px",
+      background:IG_GRAD,borderRadius:"50%",
+      width:"26px",height:"26px",
+      display:"flex",alignItems:"center",justifyContent:"center",
+      fontSize:"14px",border:"2px solid #000",
+    }},"📷"));
+  }
+  refreshAv();
+  avWrap.addEventListener("click",()=>avRef.click());
+  avRef.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;avUrl=await readFile(f);e.target.value="";refreshAv()});
+
+  // Provider selector
+  const provArea=el("div",{style:{display:"flex",flexDirection:"column",gap:"10px"}});
+  function rebuildProv(){
+    provArea.innerHTML="";
+    const grid=el("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"7px",marginBottom:"10px"}});
+    for(const[pid,p]of Object.entries(PROVIDERS)){
+      const active=charPid===pid;
+      const b=el("button",{style:{
+        display:"flex",alignItems:"center",gap:"8px",padding:"10px 13px",
+        borderRadius:"11px",cursor:"pointer",transition:"all .12s",textAlign:"left",width:"100%",
+        background:active?C.s3:C.s2,
+        border: active ? "1.5px solid transparent" : `1.5px solid ${C.border}`,
+        backgroundImage: active ? `${IG_GRAD}, linear-gradient(${C.s3},${C.s3})` : "none",
+        backgroundOrigin: active ? "border-box" : "none",
+        backgroundClip: active ? "padding-box, border-box" : "none",
+      }},
+        el("span",{style:{fontSize:"17px"}},p.emoji),
+        el("div",{style:{flex:"1"}},
+          el("div",{style:{fontWeight:"600",fontSize:"12px",color:C.text}},p.name),
+          el("div",{style:{fontSize:"10px",color:C.muted}},p.freeNote||"")
+        )
+      );
+      b.addEventListener("click",()=>{charPid=pid;charMid=DEF_MODELS[pid];rebuildProv()});
+      grid.appendChild(b);
+    }
+    provArea.appendChild(grid);
+    const p=PROVIDERS[charPid];
+    const hasKey=!!getKey(charPid);
+    if(!hasKey&&charPid!=="claude"){
+      provArea.appendChild(el("div",{style:{background:C.amber+"18",border:`1px solid ${C.amber}33`,borderRadius:"10px",padding:"9px 12px",fontSize:"12px",color:"#fcd34d",marginBottom:"6px"}},
+        `⚠️ Sin API key de ${p.name}. Agrégala en ⚙️ → Modelos.`));
+    }
+    const mdls=el("div",{style:{display:"flex",flexDirection:"column",gap:"3px",background:C.s2,borderRadius:"11px",padding:"8px"}});
+    for(const m of p.models){
+      const isAct=charMid===m.id;
+      const b=el("button",{style:{display:"flex",alignItems:"center",gap:"10px",width:"100%",padding:"9px 12px",borderRadius:"8px",border:"none",cursor:"pointer",background:isAct?p.color+"18":"transparent",textAlign:"left",transition:"background .1s"}},
+        el("div",{style:{flex:"1"}},
+          el("div",{style:{fontWeight:"600",fontSize:"13px",color:C.text}},m.label),
+          el("div",{style:{fontSize:"11px",color:C.muted}},m.desc)
+        ),
+        badge(m.badge,p.color)
+      );
+      b.addEventListener("click",()=>{charMid=m.id;rebuildProv()});
+      mdls.appendChild(b);
+    }
+    provArea.appendChild(mdls);
+  }
+  rebuildProv();
+
+  // Media list with tag editor
+  const mediaList=el("div",{style:{display:"flex",flexDirection:"column",gap:"10px"}});
+
+  function makeTagEditor(mItem,onChange){
+    const wrap=el("div",{style:{marginTop:"6px"}});
+    function parseTags(s){return(s||"").split(",").map(t=>t.trim()).filter(Boolean)}
+    function serTags(a){return a.join(", ")}
+    let cur=parseTags(mItem.tags);
+    const custInp=el("input",{placeholder:"+ custom (Enter)",style:{background:"transparent",border:"none",color:C.muted,fontSize:"11px",outline:"none",padding:"2px 0",minWidth:"80px"}});
+    custInp.addEventListener("keydown",e=>{
+      if(e.key==="Enter"||e.key===","){e.preventDefault();
+        const v=custInp.value.trim().replace(/,/g,"");
+        if(v&&!cur.includes(v)){cur=[...cur,v];custInp.value="";refresh();onChange(serTags(cur));}
+      }
+    });
+    function refresh(){
+      wrap.innerHTML="";
+      for(const[catK,cat]of Object.entries(TAG_CATS)){
+        const row=el("div",{style:{display:"flex",flexWrap:"wrap",gap:"4px",marginBottom:"5px"}});
+        row.appendChild(el("span",{style:{fontSize:"10px",color:"#888",minWidth:"40px",paddingTop:"4px",fontWeight:"600",flexShrink:"0"}},cat.label));
+        for(const t of cat.tags){
+          const sel=cur.includes(t);
+          const chip=el("span",{class:`tag-chip ${cat.cls}${sel?" sel":""}`},t);
+          chip.addEventListener("click",()=>{cur=sel?cur.filter(x=>x!==t):[...cur,t];onChange(serTags(cur));refresh()});
+          row.appendChild(chip);
+        }
+        wrap.appendChild(row);
+      }
+      const custom=cur.filter(t=>!Object.values(TAG_CATS).flatMap(c=>c.tags).includes(t));
+      if(custom.length){
+        const row=el("div",{style:{display:"flex",flexWrap:"wrap",gap:"4px",marginBottom:"4px"}});
+        row.appendChild(el("span",{style:{fontSize:"10px",color:"#888",minWidth:"40px",paddingTop:"4px",fontWeight:"600",flexShrink:"0"}},"Extras"));
+        for(const t of custom){
+          const chip=el("span",{class:"tag-chip sel"},t," ",el("span",{style:{opacity:".6",fontSize:"12px"}},"×"));
+          chip.addEventListener("click",()=>{cur=cur.filter(x=>x!==t);onChange(serTags(cur));refresh()});
+          row.appendChild(chip);
+        }
+        wrap.appendChild(row);
+      }
+      wrap.appendChild(el("div",{style:{display:"flex",alignItems:"center",gap:"6px",marginTop:"4px"}},
+        el("span",{style:{fontSize:"10px",color:C.muted,minWidth:"40px",fontWeight:"600",flexShrink:"0"}},"Custom"),custInp
+      ));
+    }
+    refresh();return wrap;
+  }
+
+  function refreshMedia(){
+    mediaList.innerHTML="";
+    for(const m of media){
+      const thumb=m.type==="image"
+        ?el("img",{src:m.url,style:{width:"54px",height:"54px",borderRadius:"8px",objectFit:"cover",flexShrink:"0"}})
+        :el("div",{style:{width:"54px",height:"54px",borderRadius:"8px",background:C.s3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"24px",flexShrink:"0"}},"🎥");
+      const descInp=el("input",{placeholder:"Descripción opcional…",style:{flex:"1",background:"transparent",border:"none",color:C.text,fontSize:"13px",outline:"none",padding:"2px 0"}});
+      descInp.value=m.description||"";
+      descInp.addEventListener("input",e=>{const i=media.findIndex(x=>x.id===m.id);if(i>=0)media[i]={...media[i],description:e.target.value}});
+      const del=el("button",{style:{background:"none",border:"none",color:C.muted,fontSize:"20px",padding:"0",flexShrink:"0",alignSelf:"flex-start"}},"✕");
+      del.addEventListener("click",()=>{media=media.filter(x=>x.id!==m.id);refreshMedia()});
+      const tagEd=makeTagEditor(m,(t)=>{const i=media.findIndex(x=>x.id===m.id);if(i>=0)media[i]={...media[i],tags:t}});
+      mediaList.appendChild(el("div",{style:{background:C.s2,borderRadius:"12px",padding:"10px 12px"}},
+        el("div",{style:{display:"flex",alignItems:"flex-start",gap:"10px"}},thumb,el("div",{style:{flex:"1",minWidth:"0"}},descInp),del),
+        el("div",{style:{marginTop:"8px",borderTop:`1px solid ${C.border}`,paddingTop:"8px"}},tagEd)
+      ));
+    }
+  }
+  refreshMedia();
+
+  medRef.addEventListener("change",async e=>{
+    for(const f of Array.from(e.target.files)){
+      const isVid=f.type.startsWith("video/");
+      const raw=await readFile(f);
+      const url=isVid?raw:await resizeImg(raw);
+      const item={id:uid(),url,type:isVid?"video":"image",name:f.name,description:"",tags:""};
+      media=[...media,item];refreshMedia();
+    }
+    e.target.value="";
+  });
+
+  const addBtn=el("button",{style:{
+    background:"transparent", border:`1.5px dashed #333`,
+    borderRadius:"10px",padding:"11px",color:C.muted,
+    fontSize:"13px",width:"100%",transition:"border-color .12s",
+  }},"+ Añadir imagen / video");
+  addBtn.addEventListener("click",()=>medRef.click());
+  addBtn.addEventListener("mouseenter",()=>addBtn.style.borderColor="#833ab4");
+  addBtn.addEventListener("mouseleave",()=>addBtn.style.borderColor="#333");
+
+  function doSave(){
+    if(!name.trim())return alert("Escribe un nombre.");
+    const saved={
+      id:char?.id||uid(),name:name.trim(),personality:pers.trim(),
+      opener:opener.trim(),mood:mood.trim(),
+      avatar:avUrl?{type:"image",url:avUrl}:initAv(name),
+      media,providerId:charPid,modelId:charMid,
+    };
+    saveChars(char?state.chars.map(c=>c.id===saved.id?saved:c):[...state.chars,saved]);
+    state.editing=null;
+    nav(char?"chat":"home",char?saved:null);
+  }
+
+  const formBody=el("div",{style:{flex:"1",overflowY:"auto",padding:"18px",display:"flex",flexDirection:"column",gap:"20px"}},
+    avRef,medRef,
+    el("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",gap:"8px",paddingBottom:"4px"}},avWrap,el("span",{style:{fontSize:"12px",color:C.muted}},"Foto de perfil")),
+    el("div",{},lbl("Nombre"),nameInp),
+    el("div",{},lbl("Personalidad"),persInp),
+    el("div",{},lbl("Estado de ánimo (opcional)"),moodInp),
+    el("div",{},lbl("Primer mensaje (opcional)"),openerInp),
+    el("div",{},lbl("Motor AI"),provArea),
+    el("div",{},
+      el("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"8px"}},
+        lbl("Galería de medios"),el("span",{style:{fontSize:"11px",color:C.muted}},"IA elige por tags + contexto")),
+      el("p",{style:{fontSize:"12px",color:C.muted,marginBottom:"10px",lineHeight:"1.5"}},"Añade archivos y elige etiquetas. La IA los envía automáticamente según el contexto."),
+      mediaList,el("div",{style:{marginTop:"8px"}},addBtn)
+    )
+  );
+
+  return Wrap(
+    hdrBar(
+      ghostBtn("← Cancelar",()=>{state.editing=null;nav(char?"chat":"home",char||null)}),
+      char?"Editar personaje":"Nuevo personaje",
+      ghostBtn("Guardar",doSave,{fontWeight:"700"})
+    ),
+    formBody
+  );
+}
+
+/* ─── CHAT SCREEN (Instagram DM) ─────────────────────────── */
+function renderChat(char){
+  const cfg=state.cfg;
+  const igMode=cfg.igBubbles!==false;
+  const userColor=cfg.bubbleColor||C.accent;
+  const dens=cfg.chatDensity||"normal";
+  const gap=dens==="compact"?"2px":dens==="spacious"?"10px":"4px";
+
+  let messages=[...(state.chats[char.id]||[])];
+  let loading=false,menuOpen=false,mpOpen=false;
+  let viewed={};
+  let reactions=getReactions();
+  let sPid=char.providerId||DEF_PROVIDER;
+  let sMid=char.modelId||DEF_MODELS[sPid];
+  let sChar={...char,providerId:sPid,modelId:sMid};
+  let isOnline=true;
+  let lastSeenText="visto hace un momento";
+
+  // ── Spontaneous message timer ────────────────────────────
+  let spontTimer=null;
+  let lastActivity=Date.now();
+  const SPONT_DELAY_MIN=45000, SPONT_DELAY_MAX=180000;
+
+  function resetSpontTimer(){
+    lastActivity=Date.now();
+    if(spontTimer)clearTimeout(spontTimer);
+    if(messages.length<1)return;
+    const wait=SPONT_DELAY_MIN+Math.random()*(SPONT_DELAY_MAX-SPONT_DELAY_MIN);
+    spontTimer=setTimeout(()=>fireSpont(),wait);
+  }
+
+  async function fireSpont(){
+    if(loading||document.hidden)return;
+    const sentSet=getSentIndices(messages);
+    const pid=sChar.providerId,mid=sChar.modelId,apiKey=getKey(pid);
+    if(!apiKey&&pid!=="claude")return;
+    const hasUnsentMedia=(sChar.media||[]).some((_,i)=>!sentSet.has(i));
+    const withMedia=hasUnsentMedia&&Math.random()<0.35;
+    setLoading(true,"escribiendo…");
+    try{
+      const system=buildSystem(sChar,sentSet,{spontaneous:true});
+      const recentCtx=messages.slice(-6);
+      const prompt=withMedia
+        ?"[Sistema interno: envía un mensaje espontáneo. Puedes incluir archivo de galería si tiene sentido.]"
+        :"[Sistema interno: envía un mensaje espontáneo corto, como si te acordaras del usuario. Solo texto.]";
+      const fakeHistory=[...recentCtx,{id:"_sp",role:"user",content:{type:"text",text:prompt}}];
+      const reply=await callAPI({providerId:pid,apiKey,modelId:mid,system,messages:fakeHistory,maxTokens:200});
+      const{text,picked,viewMode}=parseReply(reply,sChar.media||[]);
+      if(!text&&!picked){setLoading(false);resetSpontTimer();return;}
+      await delay(Math.min(typingMs(text),2000));
+      const pickedIdx=picked?(sChar.media||[]).indexOf(picked):-1;
+      const ac=picked?{type:"media",mediaType:picked.type,url:picked.url,text,viewMode,description:picked.description,galleryIdx:pickedIdx}:{type:"text",text};
+      const botMsg={id:uid(),role:"assistant",content:ac,ts:Date.now()};
+      const final=[...messages,botMsg];
+      saveMsgs(final);setLoading(false);
+      // Bump unread count if page hidden
+      if(document.hidden){
+        const nu=getUnread();nu[char.id]=(nu[char.id]||0)+1;setUnread(nu);
+      }
+      msgArea.appendChild(renderBubble(botMsg));
+      msgArea.appendChild(bref);bref.scrollIntoView({behavior:"smooth"});
+      resetSpontTimer();
+    }catch{setLoading(false);resetSpontTimer();}
+  }
+
+  function saveMsgs(m){messages=[...m];saveChats({...state.chats,[char.id]:m})}
+
+  // Status bar
+  const sdot=el("span",{style:{width:"8px",height:"8px",borderRadius:"50%",background:C.green,display:"inline-block",flexShrink:"0"}});
+  const slbl=el("span",{style:{fontSize:"11px",color:C.muted,marginLeft:"4px"}},"Activo ahora");
+  let statusAnim=null;
+  function setStatus(t,typing=false){
+    if(typing){
+      slbl.style.color="#a78bfa";slbl.textContent=t;
+      sdot.style.background="#a78bfa";
+    } else {
+      slbl.style.color=C.muted;slbl.textContent=t;
+      sdot.style.background=C.green;
+    }
+  }
+
+  const msgArea=el("div",{style:{
+    flex:"1",overflowY:"auto",padding:"8px 12px 4px",
+    display:"flex",flexDirection:"column",gap,
+    backgroundImage:"none",
+  }});
+  const bref=el("div");
+
+  // ── Lightbox ─────────────────────────────────────────────
+  const lbRoot=document.getElementById("lb-root");
+  lbRoot.innerHTML="";
+  const lb=el("div",{class:"lb-overlay"});
+  const lbM=el("div",{style:{maxWidth:"100%",maxHeight:"80vh",display:"flex",alignItems:"center",justifyContent:"center"}});
+  const lbH=el("div",{style:{marginTop:"12px",fontSize:"12px",color:"#aaa",display:"none"}},"👁 Solo se puede ver una vez");
+  const lbX=el("button",{style:{position:"absolute",top:"16px",right:"16px",background:"rgba(255,255,255,.1)",border:"none",borderRadius:"50%",width:"40px",height:"40px",color:"#fff",fontSize:"20px"}},"✕");
+  lb.appendChild(lbM);lb.appendChild(lbH);lb.appendChild(lbX);
+  lbRoot.appendChild(lb);
+  let lbCb=null;
+  function openLb(c,onClose=null){
+    lbM.innerHTML="";
+    if(c.mediaType==="video")lbM.appendChild(el("video",{src:c.url,controls:"",autoplay:"",style:{maxWidth:"100%",maxHeight:"75vh",borderRadius:"10px"}}));
+    else lbM.appendChild(el("img",{src:c.url,style:{maxWidth:"100%",maxHeight:"75vh",borderRadius:"10px",objectFit:"contain"}}));
+    lbH.style.display=c.viewMode==="once"?"block":"none";
+    lbCb=onClose;lb.style.display="flex";
+  }
+  function closeLb(){lb.style.display="none";lbM.innerHTML="";if(lbCb){lbCb();lbCb=null;}}
+  lbX.addEventListener("click",closeLb);
+  lb.addEventListener("click",e=>{if(e.target===lb)closeLb()});
+
+  // ── Typing indicator (IG style) ───────────────────────────
+  const typRow=el("div",{style:{display:"none",gap:"8px",alignItems:"flex-end",paddingLeft:"2px",padding:"4px 0"}},
+    IGAvatar(char,28),
+    el("div",{style:{
+      background:C.s3, borderRadius:"18px 18px 18px 4px",
+      padding:"12px 16px", display:"flex", gap:"5px", alignItems:"center",
+    }},
+      el("span",{class:"td1",style:{width:"7px",height:"7px",borderRadius:"50%",background:"#555",display:"inline-block"}}),
+      el("span",{class:"td2",style:{width:"7px",height:"7px",borderRadius:"50%",background:"#555",display:"inline-block"}}),
+      el("span",{class:"td3",style:{width:"7px",height:"7px",borderRadius:"50%",background:"#555",display:"inline-block"}})
+    )
+  );
+
+  function setLoading(v,wt=""){
+    loading=v;typRow.style.display=v?"flex":"none";
+    if(v){setStatus(wt||"escribiendo…",true);msgArea.appendChild(typRow);}
+    else setStatus("Activo ahora",false);
+    msgArea.appendChild(bref);bref.scrollIntoView({behavior:"smooth"});
+  }
+
+  // ── Reaction picker ──────────────────────────────────────
+  let reactionPickerFor=null;
+  let reactionPickerEl=null;
+  function closeReactionPicker(){
+    if(reactionPickerEl){reactionPickerEl.remove();reactionPickerEl=null;}
+    reactionPickerFor=null;
+  }
+  function openReactionPicker(msgId, anchorEl){
+    closeReactionPicker();
+    reactionPickerFor=msgId;
+    const picker=el("div",{style:{
+      position:"absolute", zIndex:"50",
+      background:"#1c1c1c", border:`1px solid ${C.border}`,
+      borderRadius:"24px", padding:"8px 10px",
+      display:"flex", gap:"6px",
+      boxShadow:"0 4px 20px rgba(0,0,0,.8)",
+    }});
+    for(const emoji of REACTIONS){
+      const b=el("button",{style:{
+        background:"none",border:"none",fontSize:"22px",cursor:"pointer",
+        padding:"2px 4px",borderRadius:"50%",transition:"transform .1s",
+      }},emoji);
+      b.addEventListener("click",e=>{
+        e.stopPropagation();
+        const r={...reactions};
+        if(r[msgId]===emoji) delete r[msgId];
+        else r[msgId]=emoji;
+        reactions=r;setReactions(r);
+        closeReactionPicker();
+        rebuildMsgs();
+      });
+      b.addEventListener("mouseenter",()=>b.style.transform="scale(1.3)");
+      b.addEventListener("mouseleave",()=>b.style.transform="scale(1)");
+      picker.appendChild(b);
+    }
+    reactionPickerEl=picker;
+    // position relative to msgArea
+    const rect=anchorEl.getBoundingClientRect();
+    const areaRect=msgArea.getBoundingClientRect();
+    picker.style.top=(rect.top-areaRect.top-50)+"px";
+    picker.style.left=Math.max(4,rect.left-areaRect.left-20)+"px";
+    picker.style.position="absolute";
+    msgArea.style.position="relative";
+    msgArea.appendChild(picker);
+    setTimeout(()=>document.addEventListener("click",closeReactionPicker,{once:true}),10);
+  }
+
+  // ── Voice message bubble (synthetic) ─────────────────────
+  function makeVoiceBubble(durationSec, isUser){
+    const bars=16;
+    const waveWrap=el("div",{style:{
+      display:"flex",alignItems:"center",gap:"3px",height:"28px",
+    }});
+    for(let i=0;i<bars;i++){
+      const h=8+Math.floor(Math.random()*18);
+      const b=el("div",{style:{
+        width:"3px", height:h+"px", borderRadius:"2px",
+        background: isUser?"rgba(255,255,255,.7)":"#555",
+        transition:"background .2s",
+      }});
+      waveWrap.appendChild(b);
+    }
+    const dur=el("span",{style:{fontSize:"12px",color:isUser?"rgba(255,255,255,.7)":"#666",marginLeft:"6px",flexShrink:"0"}},
+      durationSec<60?durationSec+"s":Math.floor(durationSec/60)+"m"+String(durationSec%60).padStart(2,"0")+"s");
+    const playBtn=el("button",{style:{
+      background:"none",border:"none",fontSize:"18px",cursor:"pointer",padding:"0 4px",flexShrink:"0",
+      color:isUser?"#fff":"#999",
+    }},"▶");
+    let playing=false;
+    playBtn.addEventListener("click",()=>{
+      playing=!playing;
+      playBtn.textContent=playing?"⏸":"▶";
+      // Animate bars while "playing"
+      if(playing){
+        let i=0;
+        const anim=setInterval(()=>{
+          if(!playing){clearInterval(anim);return;}
+          const bars2=waveWrap.querySelectorAll("div");
+          bars2.forEach((b,bi)=>{b.style.background=bi===i%bars?"#a78bfa":(isUser?"rgba(255,255,255,.7)":"#555")});
+          i++;
+          if(i>bars*3){clearInterval(anim);playing=false;playBtn.textContent="▶";bars2.forEach(b=>b.style.background=isUser?"rgba(255,255,255,.7)":"#555");}
+        },100);
+      }
+    });
+    return el("div",{style:{display:"flex",alignItems:"center",gap:"6px",minWidth:"140px"}},playBtn,waveWrap,dur);
+  }
+
+  // ── Render a single bubble (Instagram DM style) ───────────
+  function renderBubble(msg){
+    const isUser=msg.role==="user";
+    const c=msg.content;
+    const isMedia=c?.type==="media"&&c.url;
+    const isVoice=c?.type==="voice";
+    const wasViewed=!!viewed[msg.id];
+    const reaction=reactions[msg.id];
+
+    const row=el("div",{class:"msg-in",style:{
+      display:"flex",gap:"6px",
+      alignItems:"flex-end",
+      flexDirection:isUser?"row-reverse":"row",
+      margin:"1px 0",
+      position:"relative",
+    }});
+
+    // Avatar only for bot, only on last consecutive message
+    if(!isUser) row.appendChild(IGAvatar(char,28));
+
+    const inner=el("div",{style:{
+      maxWidth:"72%",display:"flex",flexDirection:"column",
+      gap:"2px",alignItems:isUser?"flex-end":"flex-start",
+      position:"relative",
+    }});
+
+    // Date separator (first msg of day)
+    // handled at rebuild level
+
+    if(isMedia){
+      if(c.viewMode==="once"&&wasViewed){
+        inner.appendChild(el("div",{style:{
+          background:C.s2,color:C.muted,borderRadius:"14px",
+          padding:"9px 14px",fontSize:"13px",fontStyle:"italic",
+        }},"👁 Foto vista — ya no disponible"));
+      } else {
+        const wrap=el("div",{style:{
+          position:"relative",display:"inline-block",cursor:"pointer",
+          borderRadius:"18px",overflow:"hidden",
+          maxWidth:"210px",
+          boxShadow:"0 2px 16px rgba(0,0,0,.6)",
+        }});
+        if(c.mediaType==="video")wrap.appendChild(el("video",{src:c.url,style:{width:"100%",display:"block"},controls:""}));
+        else wrap.appendChild(el("img",{src:c.url,alt:"",style:{width:"100%",display:"block"}}));
+        if(c.viewMode==="once")wrap.appendChild(el("div",{style:{position:"absolute",bottom:"6px",right:"8px",background:"rgba(0,0,0,.75)",borderRadius:"9px",padding:"2px 8px",fontSize:"11px",color:"#fff"}},"👁 1×"));
+        wrap.addEventListener("click",()=>{
+          if(c.viewMode==="once"&&!wasViewed)openLb(c,()=>{viewed={...viewed,[msg.id]:true};rebuildMsgs();});
+          else openLb(c);
+        });
+        inner.appendChild(wrap);
+      }
+    }
+
+    if(isVoice){
+      const vcWrap=el("div",{style:{
+        background:isUser?userColor:C.s3,
+        borderRadius:isUser?"18px 18px 4px 18px":"18px 18px 18px 4px",
+        padding:"10px 13px",
+      }});
+      vcWrap.appendChild(makeVoiceBubble(c.duration||3,isUser));
+      inner.appendChild(vcWrap);
+    }
+
+    if(c?.text&&c.text.trim()){
+      const bubble=el("div",{style:{
+        background:isUser?userColor:C.s3,
+        color:C.text,
+        borderRadius:isUser?"18px 18px 4px 18px":"18px 18px 18px 4px",
+        padding:"10px 14px",
+        fontSize:"15px",lineHeight:"1.52",
+        wordBreak:"break-word",whiteSpace:"pre-wrap",
+        maxWidth:"100%",
+        boxShadow:isUser?"none":"0 1px 4px rgba(0,0,0,.3)",
+        cursor:"pointer",
+      }},c.text);
+      // Double-tap / long-press → reaction picker
+      let tapTimer=null,taps=0;
+      bubble.addEventListener("click",e=>{
+        taps++;
+        if(taps===1){tapTimer=setTimeout(()=>{taps=0;},300);}
+        if(taps>=2){clearTimeout(tapTimer);taps=0;openReactionPicker(msg.id,bubble);}
+      });
+      inner.appendChild(bubble);
+    }
+
+    // Reaction badge
+    if(reaction){
+      const rb=el("div",{style:{
+        fontSize:"16px",
+        background:"#1c1c1c",border:`1px solid ${C.border}`,
+        borderRadius:"20px",padding:"2px 6px",
+        alignSelf:isUser?"flex-end":"flex-start",
+        marginTop:"-4px",cursor:"pointer",
+      }},reaction);
+      rb.addEventListener("click",()=>{
+        const r={...reactions};delete r[msg.id];reactions=r;setReactions(r);rebuildMsgs();
+      });
+      inner.appendChild(rb);
+    }
+
+    // Timestamp + read receipt
+    if(msg.ts){
+      const d=new Date(msg.ts);
+      const hh=d.getHours().toString().padStart(2,"0"),mm=d.getMinutes().toString().padStart(2,"0");
+      const readBy=getReadBy();
+      const isRead=isUser&&readBy[msg.id];
+      inner.appendChild(el("div",{style:{
+        display:"flex",alignItems:"center",gap:"3px",
+        justifyContent:isUser?"flex-end":"flex-start",
+      }},
+        el("span",{style:{fontSize:"10px",color:C.muted2}},hh+":"+mm),
+        isUser ? el("span",{style:{fontSize:"11px",color:isRead?"#a78bfa":C.muted2}},isRead?"✓✓":"✓") : null
+      ));
+    }
+
+    row.appendChild(inner);
+    return row;
+  }
+
+  // ── Date separators ──────────────────────────────────────
+  function dateSep(ts){
+    const d=new Date(ts);
+    const now=new Date();
+    let label;
+    if(d.toDateString()===now.toDateString()) label="Hoy";
+    else if(d.toDateString()===new Date(now-86400000).toDateString()) label="Ayer";
+    else label=d.getDate()+"/"+(d.getMonth()+1)+"/"+d.getFullYear();
+    return el("div",{style:{
+      display:"flex",alignItems:"center",justifyContent:"center",
+      margin:"8px 0 4px",
+    }},
+      el("span",{style:{
+        fontSize:"11px",color:C.muted,
+        background:C.s2,borderRadius:"10px",
+        padding:"3px 10px",
+      }},label)
+    );
+  }
+
+  function rebuildMsgs(){
+    msgArea.innerHTML="";
+    let lastDate="";
+    for(const m of messages){
+      if(m.ts){
+        const d=new Date(m.ts).toDateString();
+        if(d!==lastDate){msgArea.appendChild(dateSep(m.ts));lastDate=d;}
+      }
+      msgArea.appendChild(renderBubble(m));
+    }
+    if(loading)msgArea.appendChild(typRow);
+    msgArea.appendChild(bref);
+    setTimeout(()=>bref.scrollIntoView({behavior:"smooth"}),50);
+  }
+
+  // ── Mark messages as read ─────────────────────────────────
+  function markRead(){
+    const rb=getReadBy();
+    let changed=false;
+    for(const m of messages){
+      if(m.role==="user"&&!rb[m.id]){rb[m.id]=true;changed=true;}
+    }
+    if(changed)setReadBy(rb);
+  }
+
+  // ── Send content (main engine) ────────────────────────────
+  async function sendContent(userContent){
+    if(loading)return;
+    resetSpontTimer();
+    const uMsg={id:uid(),role:"user",content:userContent,ts:Date.now()};
+    const newMsgs=[...messages,uMsg];
+    saveMsgs(newMsgs);
+    if(msgArea.lastChild===bref)msgArea.insertBefore(renderBubble(uMsg),bref);
+    else msgArea.appendChild(renderBubble(uMsg));
+    inputEl.value="";inputEl.style.height="auto";
+    sendBtn.style.background=C.s3;
+    setLoading(true,"visto ✓");
+
+    // Mark user's messages as seen by bot after short delay
+    setTimeout(()=>{
+      const rb=getReadBy();rb[uMsg.id]=true;setReadBy(rb);
+      rebuildMsgs();
+    },800+Math.random()*1200);
+
+    try{
+      await delay(350+Math.random()*300);
+      setStatus("escribiendo…",true);
+
+      const pid=sChar.providerId,mid=sChar.modelId,apiKey=getKey(pid);
+      const sentSet=getSentIndices(newMsgs);
+      const ctxText=newMsgs.slice(-4).map(m=>m.content?.text||"").join(" ");
+      const preMatch=scoredGalleryMatch(sChar.media||[],sentSet,ctxText);
+      const preHint=preMatch!=null?`\n[Sugerencia del sistema: el archivo #${preMatch.idx} parece relevante para el contexto actual.]`:"";
+      const system=buildSystem(sChar,sentSet)+preHint;
+      const reply=await callAPI({providerId:pid,apiKey,modelId:mid,system,messages:newMsgs,maxTokens:900});
+      const{text,picked,viewMode}=parseReply(reply,sChar.media||[]);
+
+      await delay(Math.min(typingMs(text),2600));
+
+      const pickedIdx=picked?(sChar.media||[]).indexOf(picked):-1;
+      const ac=picked?{type:"media",mediaType:picked.type,url:picked.url,text,viewMode,description:picked.description,galleryIdx:pickedIdx}:{type:"text",text};
+      const botMsg={id:uid(),role:"assistant",content:ac,ts:Date.now()};
+      const final=[...newMsgs,botMsg];
+      messages=final;
+      saveMsgs(final);setLoading(false);
+      msgArea.appendChild(renderBubble(botMsg));
+      msgArea.appendChild(bref);bref.scrollIntoView({behavior:"smooth"});
+
+      // Natural follow-up
+      if(!picked&&text.length<120&&Math.random()<0.28){
+        await delay(1200+Math.random()*1800);
+        if(loading)return;
+        setLoading(true,"escribiendo…");
+        try{
+          const sentSet2=getSentIndices(final);
+          const sys2=buildSystem(sChar,sentSet2);
+          const fr=await callAPI({providerId:pid,apiKey,modelId:mid,system:sys2,messages:final.slice(-8),maxTokens:120});
+          const{text:ft,picked:fp}=parseReply(fr,sChar.media||[]);
+          if(ft&&ft.length>3&&!fp){
+            await delay(typingMs(ft)*0.6);
+            const fm={id:uid(),role:"assistant",content:{type:"text",text:ft},ts:Date.now()};
+            saveMsgs([...final,fm]);setLoading(false);
+            msgArea.appendChild(renderBubble(fm));msgArea.appendChild(bref);bref.scrollIntoView({behavior:"smooth"});
+          }else setLoading(false);
+        }catch{setLoading(false);}
+      }
+
+      resetSpontTimer();
+    }catch(e){
+      setLoading(false);
+      const em={id:uid(),role:"assistant",content:{type:"text",text:"⚠️ "+e.message},ts:Date.now()};
+      const errFinal=[...newMsgs,em];
+      messages=errFinal;
+      saveMsgs(errFinal);
+      msgArea.appendChild(renderBubble(em));msgArea.appendChild(bref);bref.scrollIntoView({behavior:"smooth"});
+    }
+  }
+
+  // ── Opener ───────────────────────────────────────────────
+  if(!messages.length){
+    setTimeout(async()=>{
+      setLoading(true,"escribiendo…");
+      try{
+        let text=sChar.opener;
+        if(!text){
+          const r=await callAPI({
+            providerId:sPid,apiKey:getKey(sPid),modelId:sMid,
+            system:buildSystem(sChar,new Set()),
+            messages:[{id:"_init",role:"user",content:{type:"text",text:"[Sistema: saluda de forma natural y breve como "+sChar.name+". Máximo 1-2 frases cortas.]"}}],
+            maxTokens:120,
+          });
+          text=parseReply(r,[]).text;
+        }
+        await delay(600+Math.random()*400);
+        const m={id:uid(),role:"assistant",content:{type:"text",text},ts:Date.now()};
+        saveMsgs([m]);setLoading(false);
+        msgArea.appendChild(renderBubble(m));msgArea.appendChild(bref);bref.scrollIntoView({behavior:"smooth"});
+        resetSpontTimer();
+      }catch(e){
+        const m={id:uid(),role:"assistant",content:{type:"text",text:"Hola 👋"},ts:Date.now()};
+        saveMsgs([m]);setLoading(false);
+        msgArea.appendChild(renderBubble(m));msgArea.appendChild(bref);bref.scrollIntoView({behavior:"smooth"});
+        resetSpontTimer();
+      }
+    },350);
+  }else{
+    rebuildMsgs();
+    markRead();
+    resetSpontTimer();
+  }
+
+  // ── Input area ───────────────────────────────────────────
+  const fileRef=el("input",{type:"file",accept:"image/*,video/*",style:{display:"none"}});
+  fileRef.addEventListener("change",async e=>{
+    const f=e.target.files[0];if(!f)return;
+    const isVid=f.type.startsWith("video/");
+    let url=await readFile(f);
+    if(!isVid)url=await resizeImg(url);
+    e.target.value="";
+    sendContent({type:"media",mediaType:isVid?"video":"image",url,text:"",description:isVid?"video adjunto":"imagen adjunta"});
+  });
+
+  const inputEl=el("textarea",{placeholder:"Mensaje…",rows:"1",style:{
+    flex:"1",background:C.s2,
+    border:`1px solid ${C.border}`,
+    borderRadius:"22px",padding:"10px 15px",
+    color:C.text,fontSize:"15px",
+    outline:"none",lineHeight:"1.48",
+    overflow:"hidden",maxHeight:"120px",minWidth:"0",
+  }});
+  inputEl.addEventListener("input",()=>{
+    inputEl.style.height="auto";
+    inputEl.style.height=Math.min(inputEl.scrollHeight,120)+"px";
+    const hasText=inputEl.value.trim()&&!loading;
+    sendBtn.style.background=hasText?userColor:C.s3;
+    sendBtn.style.backgroundImage=hasText&&igMode?IG_GRAD:"none";
+  });
+  inputEl.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();doSend();}});
+
+  // IG send button with gradient
+  const sendBtn=el("button",{style:{
+    background:C.s3,border:"none",borderRadius:"50%",
+    width:"42px",height:"42px",flexShrink:"0",
+    transition:"background .15s",
+    display:"flex",alignItems:"center",justifyContent:"center",
+  }});
+  sendBtn.innerHTML=`<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+  function doSend(){const t=inputEl.value.trim();if(t&&!loading)sendContent({type:"text",text:t});}
+  sendBtn.addEventListener("click",doSend);
+
+  // Attachment + emoji-like buttons
+  const attBtn=el("button",{style:{
+    background:C.s2,border:"none",borderRadius:"50%",
+    width:"42px",height:"42px",flexShrink:"0",fontSize:"19px",
+    display:"flex",alignItems:"center",justifyContent:"center",
+    transition:"background .12s",
+  }},"📎");
+  attBtn.addEventListener("click",()=>fileRef.click());
+  attBtn.addEventListener("mouseenter",()=>attBtn.style.background=C.s3);
+  attBtn.addEventListener("mouseleave",()=>attBtn.style.background=C.s2);
+
+  // Heart quick reaction button
+  const heartBtn=el("button",{style:{
+    background:"none",border:"none",fontSize:"24px",
+    padding:"0 2px",flexShrink:"0",cursor:"pointer",
+    transition:"transform .1s",color:"#ed4956",
+  }},"♥");
+  heartBtn.addEventListener("click",()=>{
+    heartBtn.style.transform="scale(1.4)";
+    setTimeout(()=>heartBtn.style.transform="scale(1)",200);
+    sendContent({type:"text",text:"❤️"});
+  });
+
+  // ── Model picker ─────────────────────────────────────────
+  const mpPanel=el("div",{style:{display:"none",position:"absolute",top:"62px",left:"12px",right:"12px",background:"#111",borderRadius:"13px",overflow:"hidden",zIndex:"31",boxShadow:"0 8px 32px rgba(0,0,0,.9)",maxHeight:"65vh",overflowY:"auto",border:`1px solid ${C.border}`}});
+  const mbEl=el("div",{style:{cursor:"pointer",userSelect:"none"}});
+  function refreshMBadge(){
+    mbEl.innerHTML="";
+    const p=PROVIDERS[sPid];const m=p.models.find(x=>x.id===sMid);
+    mbEl.appendChild(el("div",{style:{background:p.color+"22",color:p.color,border:`1px solid ${p.color}44`,borderRadius:"8px",padding:"2px 8px",fontSize:"10px",fontWeight:"600"}},p.emoji+" "+(m?.label||sMid.split("-").slice(0,2).join(" "))));
+  }
+  refreshMBadge();
+  mbEl.addEventListener("click",e=>{
+    e.stopPropagation();mpOpen=!mpOpen;
+    if(mpOpen){buildMPicker();mpPanel.style.display="block";}
+    else mpPanel.style.display="none";
+  });
+
+  function buildMPicker(){
+    mpPanel.innerHTML="";
+    mpPanel.appendChild(el("div",{style:{padding:"11px 15px 8px",borderBottom:`1px solid ${C.border}`}},
+      el("div",{style:{fontWeight:"700",fontSize:"13px",color:C.text}},"Cambiar modelo"),
+      el("div",{style:{fontSize:"10px",color:C.muted,marginTop:"2px"}},"Afecta solo esta sesión")
+    ));
+    for(const[pid,p]of Object.entries(PROVIDERS)){
+      const ak=getKey(pid);
+      mpPanel.appendChild(el("div",{style:{padding:"7px 15px 3px",fontSize:"10px",color:p.color,fontWeight:"700",letterSpacing:".5px"}},p.emoji+" "+p.name.toUpperCase()));
+      if(!ak&&pid!=="claude"){mpPanel.appendChild(el("div",{style:{padding:"4px 15px 8px",fontSize:"11px",color:C.muted}},"Sin API key — agrega en ⚙️"));continue;}
+      for(const m of p.models){
+        const isAct=sPid===pid&&sMid===m.id;
+        const r=el("button",{style:{display:"flex",alignItems:"center",gap:"10px",width:"100%",padding:"9px 15px",background:isAct?p.color+"18":"transparent",border:"none",cursor:"pointer",transition:"background .1s",textAlign:"left"}},
+          el("div",{style:{flex:"1"}},el("div",{style:{fontWeight:"600",fontSize:"13px",color:C.text}},m.label),el("div",{style:{fontSize:"11px",color:C.muted}},m.desc)),
+          badge(m.badge,p.color),
+          isAct?el("span",{style:{color:p.color,fontSize:"14px"}},"✓"):el("span")
+        );
+        r.addEventListener("mouseenter",()=>r.style.background=p.color+"18");
+        r.addEventListener("mouseleave",()=>r.style.background=isAct?p.color+"18":"transparent");
+        r.addEventListener("click",()=>{sPid=pid;sMid=m.id;sChar={...sChar,providerId:pid,modelId:m.id};mpPanel.style.display="none";mpOpen=false;refreshMBadge();});
+        mpPanel.appendChild(r);
+      }
+    }
+  }
+
+  // ── Context menu ─────────────────────────────────────────
+  const menuPanel=el("div",{style:{display:"none",position:"absolute",top:"62px",right:"12px",background:"#111",borderRadius:"12px",overflow:"hidden",zIndex:"30",minWidth:"190px",boxShadow:"0 8px 32px rgba(0,0,0,.9)",border:`1px solid ${C.border}`}});
+  function mItem(t,col,cb){
+    const b=el("button",{style:{display:"block",width:"100%",padding:"13px 17px",background:"none",border:"none",color:col||C.text,textAlign:"left",fontSize:"15px",fontFamily:"inherit",transition:"background .1s"}},t);
+    b.addEventListener("mouseenter",()=>b.style.background=C.s3);b.addEventListener("mouseleave",()=>b.style.background="none");
+    b.addEventListener("click",()=>{menuPanel.style.display="none";menuOpen=false;cb()});return b;
+  }
+  menuPanel.appendChild(mItem("✏️ Editar personaje",null,()=>{state.editing=char;nav("form")}));
+  menuPanel.appendChild(mItem("🔄 Reiniciar chat",C.amber,async()=>{
+    if(spontTimer)clearTimeout(spontTimer);
+    saveMsgs([]);messages=[];viewed={};rebuildMsgs();
+    setTimeout(async()=>{
+      setLoading(true,"escribiendo…");
+      try{
+        let text=sChar.opener;
+        if(!text){const r=await callAPI({providerId:sPid,apiKey:getKey(sPid),modelId:sMid,system:buildSystem(sChar,new Set()),messages:[{id:"_r",role:"user",content:{type:"text",text:"[Sistema: saluda brevemente como "+sChar.name+".]"}}],maxTokens:100});text=parseReply(r,[]).text;}
+        await delay(600);
+        const m={id:uid(),role:"assistant",content:{type:"text",text},ts:Date.now()};
+        saveMsgs([m]);messages=[m];setLoading(false);rebuildMsgs();resetSpontTimer();
+      }catch{const m={id:uid(),role:"assistant",content:{type:"text",text:"Hola 👋"},ts:Date.now()};saveMsgs([m]);messages=[m];setLoading(false);rebuildMsgs();resetSpontTimer();}
+    },300);
+  }));
+  menuPanel.appendChild(mItem("❌ Eliminar personaje",C.red,()=>{
+    if(spontTimer)clearTimeout(spontTimer);
+    lbRoot.innerHTML="";
+    saveChars(state.chars.filter(c=>c.id!==char.id));
+    const nc={...state.chats};delete nc[char.id];saveChats(nc);nav("home");
+  }));
+
+  const moreBtn=el("button",{style:{background:"none",border:"none",color:C.muted,fontSize:"22px",padding:"0 4px",fontFamily:"inherit"}},"⋮");
+  moreBtn.addEventListener("click",e=>{e.stopPropagation();menuOpen=!menuOpen;menuPanel.style.display=menuOpen?"block":"none";if(menuOpen){mpOpen=false;mpPanel.style.display="none";}});
+
+  const docClickHandler=(e)=>{
+    if(menuOpen&&!menuPanel.contains(e.target)&&e.target!==moreBtn){menuOpen=false;menuPanel.style.display="none";}
+    if(mpOpen&&!mpPanel.contains(e.target)&&!mbEl.contains(e.target)){mpOpen=false;mpPanel.style.display="none";}
+  };
+  document.addEventListener("click",docClickHandler);
+
+  // ── IG-style header ───────────────────────────────────────
+  const hdr=el("div",{style:{
+    display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",
+    borderBottom:`1px solid ${C.border}`,background:C.bg,
+    flexShrink:"0",position:"relative",zIndex:"10",
+  }},
+    el("button",{
+      style:{background:"none",border:"none",color:C.text,fontSize:"22px",padding:"0 4px",cursor:"pointer"},
+      onClick:()=>{if(spontTimer)clearTimeout(spontTimer);lbRoot.innerHTML="";document.removeEventListener("click",docClickHandler);nav("home");}
+    },"←"),
+    IGAvatar(char,38,true),
+    el("div",{style:{flex:"1",minWidth:"0",cursor:"pointer"},
+      onClick:()=>{/* Could open profile view */}},
+      el("div",{style:{fontWeight:"600",fontSize:"15px",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},char.name),
+      el("div",{style:{display:"flex",alignItems:"center",gap:"5px",marginTop:"1px"}},
+        sdot,slbl,
+        el("span",{style:{color:C.muted,fontSize:"11px",margin:"0 4px"}},"|"),
+        mbEl
+      )
+    ),
+    // Video call icon (decorative, IG style)
+    el("button",{style:{background:"none",border:"none",fontSize:"22px",color:C.muted,cursor:"default",padding:"0 4px"}},moreBtn.style.color="",
+    ),
+    moreBtn,menuPanel,mpPanel
+  );
+
+  const inputBar=el("div",{style:{
+    padding:"8px 10px",background:C.bg,
+    borderTop:`1px solid ${C.border}`,
+    display:"flex",gap:"6px",alignItems:"flex-end",
+    flexShrink:"0",
+  }},
+    fileRef,attBtn,inputEl,heartBtn,sendBtn
+  );
+
+  return Wrap(hdr,msgArea,inputBar);
+}
+
+/* ─── BOOT ────────────────────────────────────────────────── */
+render();
+
+</script>
+</body>
+</html>
